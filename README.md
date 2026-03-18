@@ -9,6 +9,6 @@ WhaleGuard shifts maritime safety from a reactive model to a predictive forecast
 
 ## Data and Validation
 The project utilizes three main categories of open-source data to train and validate the predictive models:
-**Training Data**: Includes whale coordinates from the NOAA Right Whale Sighting Advisory System (2017-2025), NASA ocean environment data (Chlorophyll-a and Sea Surface Temperature), and acoustic data from CIOOS Atlantic and the NOAA NCEI Passive Acoustic Data Archive.
-**Validation**: The team uses the NOAA Unusual Mortality Event dataset to perform "Hindcast Validation," reconstructing ocean conditions from past fatal accidents to see if the model would have correctly flagged those zones as high-risk.
-**Traffic Density**: Real-time shipping lane density from the MyShipTracking API is used to calculate the economic viability of proposed detours.
+* **Training Data**: Includes whale coordinates from the NOAA Right Whale Sighting Advisory System (2017-2025), NASA ocean environment data (Chlorophyll-a and Sea Surface Temperature), and acoustic data from CIOOS Atlantic and the NOAA NCEI Passive Acoustic Data Archive.
+* **Validation**: The team uses the NOAA Unusual Mortality Event dataset to perform "Hindcast Validation," reconstructing ocean conditions from past fatal accidents to see if the model would have correctly flagged those zones as high-risk.
+* **Traffic Density**: Real-time shipping lane density from the MyShipTracking API is used to calculate the economic viability of proposed detours.
