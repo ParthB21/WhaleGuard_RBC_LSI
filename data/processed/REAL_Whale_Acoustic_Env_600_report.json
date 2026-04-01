@@ -1,0 +1,21 @@
+{
+  "output_csv": "data/processed/REAL_Whale_Acoustic_Env_600.csv",
+  "total_rows": 600,
+  "positive_rows": 21,
+  "negative_rows": 579,
+  "unique_points": 10,
+  "sources": [
+    "Acoustic"
+  ],
+  "env_observed_counts": {
+    "SST_Celsius": 0,
+    "Frontal_Value": 0,
+    "Chlorophyll_mg_m3": 0,
+    "Salinity_PSU": 0
+  },
+  "notes": [
+    "No KNN, no SMOTE, no interpolation in this dataset builder.",
+    "Rows with unavailable environmental API values are kept with NaN and *_is_observed flags.",
+    "Frontal_Value is derived from observed local SST gradient (not fabricated, not interpolated)."
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "output_csv": "data/processed/REAL_Whale_Training_Data_sample.csv",
+  "total_rows": 5,
+  "positive_rows": 5,
+  "negative_rows": 0,
+  "unique_points": 5,
+  "sources": [
+    "Visual"
+  ],
+  "env_observed_counts": {
+    "SST_Celsius": 0,
+    "Frontal_Value": 0,
+    "Chlorophyll_mg_m3": 0,
+    "Salinity_PSU": 0
+  },
+  "erddap_base_url": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/",
+  "erddap_sources": {
+    "SST_Celsius": {
+      "dataset": "jplMURSST41",
+      "variable": "analysed_sst"
+    },
+    "Frontal_Value": {
+      "derived_from": "jplMURSST41 analysed_sst grid",
+      "method": "max_gradient_magnitude"
+    },
+    "Chlorophyll_mg_m3": {
+      "dataset": "erdMH1chla8day",
+      "variable": "chlorophyll"
+    },
+    "Salinity_PSU": {
+      "dataset": "coastwatchSMOSv662SSS1day",
+      "variable": "sss"
+    }
+  },
+  "paper_disclaimer": "Ji et al. (2024) used Rutgers glider profiles + UDel ERDDAP GOES/VIIRS/MODIS composites with kriging/RF gap filling. This script uses different CoastWatch griddap products; see module docstring.",
+  "notes": [
+    "No KNN, no SMOTE, no interpolation in this dataset builder.",
+    "Rows with unavailable environmental API values are kept with NaN and *_is_observed flags.",
+    "Frontal_Value is derived from observed local SST gradient (not fabricated, not interpolated).",
+    "Any_env_missing is 1 if any env column is missing; all four *_is_observed must be 1 for complete env."
+  ]
+}
