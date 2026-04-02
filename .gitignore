@@ -42,9 +42,6 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
-# Data outputs and run artifacts
-data/runs/
-
 # OS generated files
 Thumbs.db
 

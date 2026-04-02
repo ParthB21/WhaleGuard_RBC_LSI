@@ -1,6 +1,0 @@
-SIGHTINGDATE,LAT,LON,Presence,SOURCE,SOURCE_DETAIL,PACKAGE_ID,Season,SST_Celsius,Frontal_Value,Chlorophyll_mg_m3,Salinity_PSU,SST_is_observed,Frontal_is_observed,Chlorophyll_is_observed,Salinity_is_observed,Any_env_missing
-2002-02-06,41.93,-70.52,1,Visual,RWSAS sightings,,Winter,,,,,0,0,0,0,1
-2002-02-07,41.88,-70.28,1,Visual,RWSAS sightings,,Winter,,,,,0,0,0,0,1
-2002-02-07,42.15,-70.33,1,Visual,RWSAS sightings,,Winter,,,,,0,0,0,0,1
-2002-02-07,42.2,-70.2,1,Visual,RWSAS sightings,,Winter,,,,,0,0,0,0,1
-2002-02-07,42.24,-70.2,1,Visual,RWSAS sightings,,Winter,,,,,0,0,0,0,1

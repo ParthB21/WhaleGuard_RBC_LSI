@@ -1,0 +1,44 @@
+{
+  "mode": "coastwatch",
+  "output_csv": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260330_015654_748ee678/whale_dataset_coastwatch.csv",
+  "total_rows": 15727,
+  "positive_rows": 12487,
+  "negative_rows": 3240,
+  "unique_points": 8468,
+  "sources": [
+    "Acoustic",
+    "Visual"
+  ],
+  "env_observed_counts": {
+    "SST_Celsius": 563,
+    "Frontal_Value": 563,
+    "Chlorophyll_mg_m3": 408,
+    "Salinity_PSU": 0
+  },
+  "erddap_sources": {
+    "server": "https://coastwatch.pfeg.noaa.gov/erddap/griddap",
+    "SST_Celsius": {
+      "dataset": "jplMURSST41",
+      "variable": "analysed_sst"
+    },
+    "Frontal_Value": {
+      "derived_from": "jplMURSST41 analysed_sst grid",
+      "method": "max_gradient_magnitude"
+    },
+    "Chlorophyll_mg_m3": {
+      "dataset": "erdMH1chla8day",
+      "variable": "chlorophyll"
+    },
+    "Salinity_PSU": {
+      "dataset": "coastwatchSMOSv662SSS1day",
+      "variable": "sss"
+    }
+  },
+  "paper_disclaimer": "NOAA CoastWatch griddap only (not UDel). Real measured composites; no imputed env values.",
+  "notes": [
+    "No KNN, no SMOTE, no interpolation in this dataset builder.",
+    "Rows with unavailable environmental API values are kept with NaN and *_is_observed flags.",
+    "Frontal_Value is max |\u2207SST| on MUR subgrid (not UDel M_WK_G).",
+    "Any_env_missing is 1 if any of the four main env columns is missing."
+  ]
+}
