@@ -93,3 +93,5 @@ ls -1 data/runs | tail -n 1
 ```
 
 This quickly proves the script runs and writes outputs.
+
+The generated csv file is under data -> runs
