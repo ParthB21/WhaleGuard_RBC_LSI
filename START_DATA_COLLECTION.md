@@ -60,5 +60,3 @@ How the cache is used
 Troubleshooting
 - If you see many HTTP errors, check network connectivity or run with `--no-env` to skip ERDDAP fetches.
 - If the script creates many `data/runs` outputs, remove old runs with `rm -rf data/runs/run_*` if you want to clean up.
-
-That's it — let me know if you want this added to a full `README.md` or if you'd like a `requirements.txt` generated and committed.
