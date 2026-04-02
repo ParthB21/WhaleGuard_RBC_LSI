@@ -1,0 +1,34 @@
+{
+  "mode": "paper",
+  "output_csv": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/whale_dataset_paper.csv",
+  "total_rows": 15727,
+  "positive_rows": 12487,
+  "negative_rows": 3240,
+  "unique_points": 8468,
+  "sources": [
+    "Acoustic",
+    "Visual"
+  ],
+  "env_observed_counts": {
+    "SST_Celsius": 15538,
+    "Frontal_Value": 15504,
+    "Chlorophyll_mg_m3": 15465,
+    "Salinity_PSU": 4075,
+    "Water_Mass_M_WK": 15520
+  },
+  "erddap_sources": {
+    "server_primary": "https://basin.ceoe.udel.edu/erddap/griddap",
+    "SST_Celsius": "Ladder: daily_composite_JPL_SST.sst \u2192 VIIRS_NWATL.sst \u2192 MODIS_AQUA_3_day.sst",
+    "Chlorophyll_mg_m3": "Ladder: VIIRS_NWATL.chl_oc3 \u2192 MODIS_AQUA_3_day.chl_oc3",
+    "Frontal_Value": "Oliver & Irwin style M_WK_G: MODIS_AQUA_3_day \u2192 VIIRS_NWATL fallback",
+    "Water_Mass_M_WK": "M_WK: MODIS_AQUA_3_day \u2192 VIIRS_NWATL fallback",
+    "Salinity_PSU": "Extra: coastwatchSMOSv662SSS1day.sss (paper used glider salinity, not SMOS)"
+  },
+  "paper_disclaimer": "Mirrors the paper's satellite *product ladder* on UDel ERDDAP. Does not reproduce kriging/RF gap filling or SMOTE. Glider profiles (temp/salinity/oxygen/depth) are not fetched here.",
+  "notes": [
+    "No KNN, no SMOTE, no interpolation in this dataset builder.",
+    "Rows with unavailable environmental API values are kept with NaN and *_is_observed flags.",
+    "Paper frontal/water-mass variables align with MODIS/VIIRS M_WK_G and M_WK on basin.ceoe.udel.edu.",
+    "Any_env_missing in paper mode requires SST, Frontal, Chlorophyll, Salinity, and Water_Mass present."
+  ]
+}
