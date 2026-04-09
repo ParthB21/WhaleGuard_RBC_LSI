@@ -1,0 +1,21 @@
+{
+  "input_csv": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/whale_dataset_paper.csv",
+  "output_raw": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_all_years/training_ready_acoustic_raw.csv",
+  "output_imputed": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_all_years/training_ready_acoustic_imputed.csv",
+  "include_visual": false,
+  "min_year": null,
+  "max_year": null,
+  "rows_after_scope": 3514,
+  "presence_counts": {
+    "0": 3240,
+    "1": 274
+  },
+  "positive_rate": 0.07797381900967558,
+  "imputation_medians": {
+    "SST_Celsius": 15.583696055555556,
+    "Frontal_Value": 0.1317520813636363,
+    "Chlorophyll_mg_m3": 0.7848302825877193,
+    "Salinity_PSU": 34.648551499999996,
+    "Water_Mass_M_WK": 136.13793103448276
+  }
+}

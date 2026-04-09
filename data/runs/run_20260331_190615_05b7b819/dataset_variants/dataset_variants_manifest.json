@@ -1,0 +1,196 @@
+{
+  "input_csv": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/whale_dataset_paper.csv",
+  "output_dir": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants",
+  "seed": 42,
+  "variants": {
+    "acoustic_all_years": {
+      "config": {
+        "include_visual": false,
+        "min_year": null,
+        "max_year": null
+      },
+      "files": {
+        "raw": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_all_years/training_ready_acoustic_raw.csv",
+        "imputed": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_all_years/training_ready_acoustic_imputed.csv",
+        "summary": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_all_years/training_ready_acoustic_summary.json",
+        "balanced_neg1_pos1": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_all_years/training_ready_balanced_neg1_pos1.csv",
+        "balanced_neg2_pos1": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_all_years/training_ready_balanced_neg2_pos1.csv"
+      },
+      "stats": {
+        "imputed": {
+          "rows": 3514,
+          "presence_counts": {
+            "0": 3240,
+            "1": 274
+          },
+          "positive_rate": 0.07797381900967558,
+          "date_min": "2018-11-12",
+          "date_max": "2021-02-14"
+        },
+        "balanced_neg1_pos1": {
+          "rows": 548,
+          "presence_counts": {
+            "1": 274,
+            "0": 274
+          },
+          "positive_rate": 0.5,
+          "date_min": "2018-11-15",
+          "date_max": "2021-02-12"
+        },
+        "balanced_neg2_pos1": {
+          "rows": 822,
+          "presence_counts": {
+            "0": 548,
+            "1": 274
+          },
+          "positive_rate": 0.3333333333333333,
+          "date_min": "2018-11-15",
+          "date_max": "2021-02-13"
+        }
+      }
+    },
+    "acoustic_2019plus": {
+      "config": {
+        "include_visual": false,
+        "min_year": 2019,
+        "max_year": null
+      },
+      "files": {
+        "raw": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_2019plus/training_ready_acoustic_raw.csv",
+        "imputed": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_2019plus/training_ready_acoustic_imputed.csv",
+        "summary": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_2019plus/training_ready_acoustic_summary.json",
+        "balanced_neg1_pos1": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_2019plus/training_ready_balanced_neg1_pos1.csv",
+        "balanced_neg2_pos1": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/acoustic_2019plus/training_ready_balanced_neg2_pos1.csv"
+      },
+      "stats": {
+        "imputed": {
+          "rows": 3303,
+          "presence_counts": {
+            "0": 3039,
+            "1": 264
+          },
+          "positive_rate": 0.07992733878292461,
+          "date_min": "2019-01-01",
+          "date_max": "2021-02-14"
+        },
+        "balanced_neg1_pos1": {
+          "rows": 528,
+          "presence_counts": {
+            "1": 264,
+            "0": 264
+          },
+          "positive_rate": 0.5,
+          "date_min": "2019-01-03",
+          "date_max": "2021-01-30"
+        },
+        "balanced_neg2_pos1": {
+          "rows": 792,
+          "presence_counts": {
+            "0": 528,
+            "1": 264
+          },
+          "positive_rate": 0.3333333333333333,
+          "date_min": "2019-01-02",
+          "date_max": "2021-02-03"
+        }
+      }
+    },
+    "mixed_all_years": {
+      "config": {
+        "include_visual": true,
+        "min_year": null,
+        "max_year": null
+      },
+      "files": {
+        "raw": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/mixed_all_years/training_ready_mixed_raw.csv",
+        "imputed": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/mixed_all_years/training_ready_mixed_imputed.csv",
+        "summary": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/mixed_all_years/training_ready_mixed_summary.json",
+        "balanced_neg1_pos1": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/mixed_all_years/training_ready_balanced_neg1_pos1.csv",
+        "balanced_neg2_pos1": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/mixed_all_years/training_ready_balanced_neg2_pos1.csv"
+      },
+      "stats": {
+        "imputed": {
+          "rows": 15727,
+          "presence_counts": {
+            "1": 12487,
+            "0": 3240
+          },
+          "positive_rate": 0.7939848667895975,
+          "date_min": "2002-02-06",
+          "date_max": "2021-02-14"
+        },
+        "balanced_neg1_pos1": {
+          "rows": 6480,
+          "presence_counts": {
+            "0": 3240,
+            "1": 3240
+          },
+          "positive_rate": 0.5,
+          "date_min": "2002-02-14",
+          "date_max": "2021-02-14"
+        },
+        "balanced_neg2_pos1": {
+          "rows": 4860,
+          "presence_counts": {
+            "0": 3240,
+            "1": 1620
+          },
+          "positive_rate": 0.3333333333333333,
+          "date_min": "2002-03-02",
+          "date_max": "2021-02-14"
+        }
+      }
+    },
+    "mixed_2019plus": {
+      "config": {
+        "include_visual": true,
+        "min_year": 2019,
+        "max_year": null
+      },
+      "files": {
+        "raw": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/mixed_2019plus/training_ready_mixed_raw.csv",
+        "imputed": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/mixed_2019plus/training_ready_mixed_imputed.csv",
+        "summary": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/mixed_2019plus/training_ready_mixed_summary.json",
+        "balanced_neg1_pos1": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/mixed_2019plus/training_ready_balanced_neg1_pos1.csv",
+        "balanced_neg2_pos1": "/Users/vishnu/Documents/code/Whaleguard/data/runs/run_20260331_190615_05b7b819/dataset_variants/mixed_2019plus/training_ready_balanced_neg2_pos1.csv"
+      },
+      "stats": {
+        "imputed": {
+          "rows": 3303,
+          "presence_counts": {
+            "0": 3039,
+            "1": 264
+          },
+          "positive_rate": 0.07992733878292461,
+          "date_min": "2019-01-01",
+          "date_max": "2021-02-14"
+        },
+        "balanced_neg1_pos1": {
+          "rows": 528,
+          "presence_counts": {
+            "1": 264,
+            "0": 264
+          },
+          "positive_rate": 0.5,
+          "date_min": "2019-01-03",
+          "date_max": "2021-01-30"
+        },
+        "balanced_neg2_pos1": {
+          "rows": 792,
+          "presence_counts": {
+            "0": 528,
+            "1": 264
+          },
+          "positive_rate": 0.3333333333333333,
+          "date_min": "2019-01-02",
+          "date_max": "2021-02-03"
+        }
+      }
+    }
+  },
+  "notes": [
+    "All files are cleaned, deduplicated, and training-ready.",
+    "Imputed files fill env NaN values with medians and keep observation flags.",
+    "Balanced files are for prototyping only; evaluate on natural class distributions."
+  ]
+}
