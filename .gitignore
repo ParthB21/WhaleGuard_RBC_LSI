@@ -50,3 +50,6 @@ Thumbs.db
 
 # Raw Data
 data/raw/
+*.csv
+*.nc
+data/processed/
