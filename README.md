@@ -1,8 +1,20 @@
 # WhaleGuard — NARW Species Distribution Model
 
-**Complete Project Documentation**
+**RBC Borealis — Large-Scale Intelligence**
 
 A production-grade machine learning pipeline for predicting North Atlantic Right Whale (*Eubalaena glacialis*) habitat suitability using satellite-derived oceanographic data and an XGBoost classifier.
+
+---
+
+## Documentation
+
+This project is documented across three complementary files:
+
+| Document | Description |
+|---|---|
+| **[README.md](README.md)** (this file) | High-level overview: pipeline architecture, data sources, feature dictionary, and results summary |
+| **[EDA_Walkthrough.md](EDA_Walkthrough.md)** | In-depth technical walkthrough of exploratory data analysis, statistical tests, and ecological validation |
+| **[ML_Walkthrough.md](ML_Walkthrough.md)** | In-depth technical walkthrough of model training, threshold optimisation, and evaluation |
 
 ---
 
@@ -12,13 +24,11 @@ A production-grade machine learning pipeline for predicting North Atlantic Right
 2. [Pipeline Architecture (5 Phases)](#pipeline-architecture-5-phases)
 3. [Data Sources & Provenance](#data-sources--provenance)
 4. [Feature Dictionary (All 10 Features)](#feature-dictionary-all-10-features)
-5. [Exploratory Data Analysis (EDA) & Visualisations](#exploratory-data-analysis-eda--visualisations)
-6. [Model Training Methodology](#model-training-methodology)
-7. [Evaluation Results](#evaluation-results)
-8. [File Structure](#file-structure)
-9. [Known Issues & Edge Cases](#known-issues--edge-cases)
-10. [Future Work](#future-work)
-11. [References](#references)
+5. [Results Summary](#results-summary)
+6. [File Structure](#file-structure)
+7. [Known Issues & Edge Cases](#known-issues--edge-cases)
+8. [Future Work](#future-work)
+9. [References](#references)
 
 ---
 
@@ -32,6 +42,8 @@ North Atlantic Right Whales are among the most endangered large whales on Earth 
 - **ROC-AUC: 0.8805** (strong discriminative power)
 - **Recall: 80.0%** at optimised threshold (τ = 0.1718)
 - Trained on 51,920 rows, tested on 12,981 rows (temporal split)
+
+> For the complete model comparison and threshold optimisation rationale, see the [ML Walkthrough](ML_Walkthrough.md).
 
 ---
 
@@ -65,6 +77,8 @@ graph LR
 **Output:** A balanced dataset with a 1:4 presence-to-absence ratio.
 
 **Why 1:4?** Gowan (2014) showed this ratio optimally balances model sensitivity while reflecting the reality that most of the ocean is NOT whale habitat at any given time.
+
+> For the statistical validation of this design choice, see [EDA Walkthrough — Class Balance & Pseudo-Absence Design](EDA_Walkthrough.md#3-class-balance--pseudo-absence-design).
 
 ---
 
@@ -184,9 +198,9 @@ The model trains on **10 features**. Here is what each one captures ecologically
 #### 6. `Month` — Calendar Month (1-12)
 - **Source:** Extracted from sighting date
 - **Mann-Whitney |r|:** 0.001 (**NOT significant**, p = 0.80)
-- **XGBoost Gain Rank:** **#3** (43.70 avg gain)
+- **XGBoost Gain Rank:** **#3** (0.125 gain)
 - **Ecological role:** Captures seasonal migration patterns (calving in winter SE US, feeding in summer NE US).
-> **Note:** Month appears "weak" in univariate tests but is highly important in XGBoost. This is because pseudo-absences share the same month as sightings, neutralizing univariate correlation. However, XGBoost captures interactions like "Month=4 AND SST<10" which hold high predictive power.
+> **Note:** Month appears "weak" in univariate tests but is highly important in XGBoost. This is because pseudo-absences share the same month as sightings, neutralizing univariate correlation. However, XGBoost captures interactions like "Month=4 AND SST<10" which hold high predictive power. See [EDA Walkthrough — The Month Paradox](EDA_Walkthrough.md#10-mann-whitney-u-tests--statistical-significance) for the full analysis.
 
 ### Static Features (don't change with time)
 
@@ -216,68 +230,28 @@ The model trains on **10 features**. Here is what each one captures ecologically
 
 ---
 
-## Exploratory Data Analysis (EDA) & Visualisations
+## Results Summary
 
-Through the project's EDA, we derived empirical, data-driven insights into the habitat preferences of NARWs. Here are the core visuals that explain the underlying relationships driving the predictive models.
+### EDA Highlights
 
-### 1. Geographic Distribution & Class Balance
-The maps below show the spatial coverage of sighting data against the synthetically generated pseudo-absences. Pseudo-absences were generated using the Gowan (2014) methodology (15-300km radial buffers) on the exact same date as sightings to balance the classes 1:4.
 <p align="center">
   <img src="images/geographic_distribution.png" width="45%" />
   <img src="images/class_balance.png" width="45%" />
 </p>
-
-### 2. Feature Distributions (KDEs)
-Kernel Density Estimation (KDE) plots vividly illustrate where whales are located compared to random oceanic points. 
-- **Distance to Shore:** Whales heavily index closer to the coast (peaks under 50km).
-- **Sea Surface Temperature (SST):** Highlights the "Goldilocks zone" (6-14°C) essential for copepod blooming, which directly influences NARW locations.
 
 <p align="center">
   <img src="images/kde_dist_to_shore_km.png" width="45%" />
   <img src="images/kde_sst.png" width="45%" />
 </p>
 
-### 3. Missingness & Feature Correlation
-Prior to training, we examine missingness and multicollinearity. `missingness_heatmap.png` ensures no systematic gaps outside optical satellite limits, and the `correlation_heatmap_full.png` checks whether variables (like Depth and Distance to Shore) redundantly capture the same information.
-
-<p align="center">
-  <img src="images/correlation_heatmap_full.png" width="80%" />
-</p>
-
-### 4. Non-Linear Responses & Environmental Rates
-This plot illustrates the relationship between specific feature bins and the percentage of those bins that contain whales. Notice the non-linear curves, reinforcing why XGBoost (a non-linear model) outperforms Logistic Regression.
-
 <p align="center">
   <img src="images/presence_rate_vs_env.png" width="80%" />
 </p>
 
----
+> For the full analysis of all 27 visualisations, statistical tests, and ecological interpretations, see the [EDA Walkthrough](EDA_Walkthrough.md).
 
-## Model Training Methodology
+### Model Performance
 
-We train two models: a **Logistic Regression baseline** and an **XGBoost ensemble** (our primary model). This follows best practice in ML research — always compare against a simpler baseline to prove the complexity is justified.
-
-### Model A: Logistic Regression Baseline
-**Why start here?** Logistic regression provides interpretable coefficients and odds ratios.
-- **Pipeline:** `SimpleImputer(median)` → `StandardScaler` → `LogisticRegression(class_weight="balanced")`
-- **Top coefficient:** `Dist_to_Shore_km` (-2.04) — every 1σ increase in distance to shore reduces whale odds by 87%.
-
-### Model B: XGBoost (Primary Model)
-**Why XGBoost over LR?**
-- Handles missing values natively (sparsity-aware split finding).
-- Captures **non-linear relationships and feature interactions**.
-- **+7.6% AUC improvement** over baseline.
-
-**Key Design Decisions:**
-- **Temporal split (80/20):** Train on 2002-2015, test on 2015-2018.
-- **Drop Lat, Lon, Date:** Forces the model to learn *ocean physics*, not memorize coordinates.
-- **Threshold optimisation (τ = 0.1718):** For endangered species management, missing a whale is critical. We sweep thresholds to achieve ≥80% recall with maximum precision.
-
----
-
-## Evaluation Results
-
-### Model Comparison
 | Metric | Logistic Regression | XGBoost (τ=0.50) | XGBoost (τ=0.17) |
 |---|---|---|---|
 | **ROC-AUC** | 0.8050 | **0.8805** | **0.8805** |
@@ -291,20 +265,18 @@ We train two models: a **Logistic Regression baseline** and an **XGBoost ensembl
   <img src="images/precision_recall_tradeoff.png" width="45%" />
 </p>
 
-### Feature Importance (by XGBoost Gain)
-
-XGBoost's native gain metric measures how much a feature improves the purity of the splits. **Distance to Shore** and **Distance to Shelf** are the dominant predictors.
-
 <p align="center">
   <img src="images/feature_importance.png" width="60%" />
 </p>
+
+> For the complete model comparison, threshold optimisation, and interpretability analysis, see the [ML Walkthrough](ML_Walkthrough.md).
 
 ---
 
 ## File Structure
 
 ```
-Re-WhaleGuard/
+WhaleGuard_RBC_LSI/
 ├── data/
 │   ├── raw/
 │   │   └── 23305_RWSAS.csv              # Raw NOAA sightings
@@ -317,7 +289,7 @@ Re-WhaleGuard/
 │   ├── xgb_narw_sdm.json               # Trained XGBoost model
 │   ├── lr_narw_sdm.joblib              # Trained LR baseline model
 │   └── optimal_threshold.txt            # τ = 0.1718 for ≥80% recall
-├── images/                               # 24 publication-ready plots
+├── images/                               # 27 publication-ready plots
 ├── logs/                                 # Pipeline execution logs
 ├── pipeline.py                           # Phase 1-2: ETL + pseudo-absences
 ├── phase3_feature_engineering.py         # Phase 3: SST gradient
@@ -328,7 +300,9 @@ Re-WhaleGuard/
 ├── manual_test.py                        # Inference test with 4 scenarios
 ├── eda_narw_sdm.ipynb                    # Main EDA notebook
 ├── requirements.txt                      # Python dependencies
-└── README.md                             # Documentation
+├── README.md                             # Project overview (this file)
+├── EDA_Walkthrough.md                    # Technical EDA documentation
+└── ML_Walkthrough.md                     # Technical ML documentation
 ```
 
 ---
@@ -356,9 +330,10 @@ Re-WhaleGuard/
 
 1. **Baumgartner, M. F. & Mate, B. R. (2005).** Summer and fall habitat of North Atlantic right whales inferred from satellite telemetry. *Can. J. Fish. Aquat. Sci.*, 62(3), 527-543.
 2. **Gowan, T. A. & Ortega-Ortiz, J. G. (2014).** Wintering habitat model for the NARW in the southeastern US. *Endangered Species Research*, 23(3), 291-302.
-3. **Pendleton, D. E., et al. (2012).** Weekly predictions of NARW habitat reveal influence of prey abundance and seasonality. *Endangered Species Research*, 18(2), 147-161.
-4. **Roberts, J. J., et al. (2016).** Habitat-based cetacean density models for the U.S. Atlantic and Gulf of Mexico. *Scientific Reports*, 6, 22615.
-5. **Ross, C. H., et al. (2025).** Energy-based prey thresholds improve NARW habitat predictions. *Endangered Species Research*.
-6. **Schick, R. S., et al. (2009).** Striking the right balance in right whale conservation. *Can. J. Fish. Aquat. Sci.*, 66(9), 1399-1403.
-7. **Tao, Y., et al. (2025).** Multi-sensor NARW habitat model with thermal front detection.
-8. **Wyles, J. D., et al. (2022).** Seabed geomorphology as a predictor of habitat use in marine predators. *Frontiers in Marine Science*, 9, 818635.
+3. **Ji, R., et al. (2024).** Machine learning approaches for North Atlantic right whale habitat prediction. *Marine Ecology Progress Series*.
+4. **Pendleton, D. E., et al. (2012).** Weekly predictions of NARW habitat reveal influence of prey abundance and seasonality. *Endangered Species Research*, 18(2), 147-161.
+5. **Roberts, J. J., et al. (2016).** Habitat-based cetacean density models for the U.S. Atlantic and Gulf of Mexico. *Scientific Reports*, 6, 22615.
+6. **Ross, C. H., et al. (2025).** Energy-based prey thresholds improve NARW habitat predictions. *Endangered Species Research*.
+7. **Schick, R. S., et al. (2009).** Striking the right balance in right whale conservation. *Can. J. Fish. Aquat. Sci.*, 66(9), 1399-1403.
+8. **Tao, Y., et al. (2025).** Multi-sensor NARW habitat model with thermal front detection.
+9. **Wyles, J. D., et al. (2022).** Seabed geomorphology as a predictor of habitat use in marine predators. *Frontiers in Marine Science*, 9, 818635.
