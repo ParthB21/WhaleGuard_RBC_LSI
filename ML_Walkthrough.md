@@ -122,7 +122,7 @@ Logistic regression coefficients (standardised) reveal the **direction and magni
 
 ---
 
-## 4. Model B: XGBoost (Primary)
+## 4. Model B: XGBoost
 
 ### Hyperparameter Tuning
 
