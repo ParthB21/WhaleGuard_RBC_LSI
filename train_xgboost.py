@@ -26,7 +26,13 @@
 
 import time
 import sys
+import io
 from pathlib import Path
+
+# Force UTF-8 output on Windows console
+if sys.stdout.encoding != "utf-8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 import numpy as np
 import pandas as pd
@@ -43,6 +49,8 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
+from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
+from scipy.stats import randint, uniform, loguniform
 
 # =========================================================================
 #  Configuration
@@ -170,22 +178,78 @@ def main():
     print(f"  Test:  {len(X_test):,} rows  ({split_date.date()} → {dates.iloc[-1].date()})")
     print(f"  Train class balance: {n_pos_train:,} pos / {n_neg_train:,} neg (ratio 1:{ratio:.1f})")
 
-    # ── 4. Model Training ────────────────────────────────────────────
-    print_section("4. XGBoost Training")
+    # ── 4. Hyperparameter Tuning & Training ────────────────────────
+    print_section("4. Hyperparameter Tuning (RandomizedSearchCV + TimeSeriesSplit)")
 
-    # scale_pos_weight counterbalances the 1:4 imbalance
-    XGB_PARAMS["scale_pos_weight"] = ratio
+    # Fixed params (not tuned)
+    fixed_params = {
+        "objective":        "binary:logistic",
+        "eval_metric":      "auc",
+        "tree_method":      "hist",
+        "random_state":     42,
+        "verbosity":        0,
+        "scale_pos_weight": ratio,
+    }
 
-    model = xgb.XGBClassifier(**XGB_PARAMS)
+    # Search space
+    param_distributions = {
+        "n_estimators":     randint(100, 800),
+        "max_depth":        randint(3, 12),
+        "learning_rate":    loguniform(0.005, 0.3),
+        "subsample":        uniform(0.5, 0.5),       # [0.5, 1.0]
+        "colsample_bytree": uniform(0.5, 0.5),       # [0.5, 1.0]
+        "min_child_weight": randint(1, 15),
+        "gamma":            uniform(0, 0.5),
+        "reg_alpha":        loguniform(0.001, 5.0),
+        "reg_lambda":       loguniform(0.1, 10.0),
+    }
+
+    base_model = xgb.XGBClassifier(**fixed_params)
+    tscv = TimeSeriesSplit(n_splits=3)
+    n_iter = 40
+
+    search = RandomizedSearchCV(
+        base_model, param_distributions, n_iter=n_iter,
+        cv=tscv, scoring="roc_auc", n_jobs=-1,
+        random_state=42, verbose=0, refit=False,
+    )
 
     print(f"  Algorithm:        XGBClassifier (gradient-boosted trees)")
-    print(f"  n_estimators:     {XGB_PARAMS['n_estimators']}")
-    print(f"  max_depth:        {XGB_PARAMS['max_depth']}")
-    print(f"  learning_rate:    {XGB_PARAMS['learning_rate']}")
-    print(f"  scale_pos_weight: {ratio:.2f} (compensates 1:{ratio:.0f} imbalance)")
-    print(f"  eval_metric:      AUC")
-    print(f"\n  Training...", end="", flush=True)
+    print(f"  scale_pos_weight: {ratio:.2f} (fixed, compensates 1:{ratio:.0f} imbalance)")
+    print(f"  Search space:     {len(param_distributions)} hyperparameters")
+    dist_labels = {
+        "n_estimators": "randint(100, 800)", "max_depth": "randint(3, 12)",
+        "learning_rate": "loguniform(0.005, 0.3)", "subsample": "uniform(0.5, 1.0)",
+        "colsample_bytree": "uniform(0.5, 1.0)", "min_child_weight": "randint(1, 15)",
+        "gamma": "uniform(0, 0.5)", "reg_alpha": "loguniform(0.001, 5.0)",
+        "reg_lambda": "loguniform(0.1, 10.0)",
+    }
+    for param in param_distributions:
+        print(f"    {param:20s} ~ {dist_labels[param]}")
+    print(f"  CV strategy:      TimeSeriesSplit (3 folds, temporal ordering)")
+    print(f"  Iterations:       {n_iter} random samples")
+    print(f"  Total fits:       {n_iter * 3}")
+    print(f"\n  Searching...", end="", flush=True)
 
+    t_tune = time.time()
+    search.fit(X_train, y_train)
+    tune_time = time.time() - t_tune
+    print(f" done in {tune_time:.1f}s")
+
+    # Report best params
+    best_params = search.best_params_
+    print(f"\n  Best CV ROC-AUC: {search.best_score_:.4f}")
+    print(f"  Best parameters:")
+    for param, value in sorted(best_params.items()):
+        print(f"    {param:20s} = {value}")
+
+    # Retrain final model on full training data with best params + eval_set
+    print_section("4b. Final Training (Best Parameters + eval_set)")
+
+    XGB_PARAMS = {**fixed_params, **best_params}
+    model = xgb.XGBClassifier(**XGB_PARAMS)
+
+    print(f"\n  Training final model...", end="", flush=True)
     t_train = time.time()
     model.fit(
         X_train, y_train,

@@ -44,12 +44,12 @@ North Atlantic Right Whales are among the most endangered large whales on Earth 
 
 **Core question:** *Given oceanographic conditions at a location on a given day, what is the probability that a NARW is present?*
 
-**Model performance:**
-- **ROC-AUC: 0.8805** (strong discriminative power)
-- **Recall: 80.0%** at optimised threshold (τ = 0.1718)
+**Model performance (all models tuned via `RandomizedSearchCV` + `scipy.stats` distributions):**
+- **ROC-AUC: 0.9041** (Random Forest — best model, strong discriminative power)
+- **Recall: 80.1%** at optimised threshold (τ = 0.2018)
 - Trained on 51,920 rows, tested on 12,981 rows (temporal split)
 
-> For the complete model comparison and threshold optimisation rationale, see the [ML Walkthrough](ML_Walkthrough.md).
+> For the complete model comparison, hyperparameter tuning details, and threshold optimisation rationale, see the [ML Walkthrough](ML_Walkthrough.md).
 
 ---
 
@@ -256,15 +256,15 @@ The model trains on **10 features**. Here is what each one captures ecologically
 
 > For the full analysis of all 27 visualisations, statistical tests, and ecological interpretations, see the [EDA Walkthrough](EDA_Walkthrough.md).
 
-### Model Performance
+### Model Performance (Tuned via `RandomizedSearchCV` + `scipy.stats` Distributions)
 
-| Metric | Logistic Regression | XGBoost (τ=0.50) | XGBoost (τ=0.17) |
-|---|---|---|---|
-| **ROC-AUC** | 0.8050 | **0.8805** | **0.8805** |
-| Recall | 0.8316 | 0.7023 | **0.8002** ✓ |
-| Precision | 0.3393 | 0.6088 | 0.4204 |
-| F1-Score | 0.4820 | 0.6522 | 0.5512 |
-| Accuracy | 0.6402 | 0.8492 | 0.7377 |
+| Metric | Logistic Regression | XGBoost (τ=0.50) | XGBoost (τ=0.22) | Random Forest (τ=0.50) | Random Forest (τ=0.20) |
+|---|---|---|---|---|---|
+| **ROC-AUC** | 0.8046 | 0.8991 | 0.8991 | **0.9041** | **0.9041** |
+| Recall | 0.8324 | 0.7011 | 0.8002 ✓ | 0.6410 | **0.8006** ✓ |
+| Precision | 0.3383 | 0.6285 | 0.4559 | **0.7603** | 0.4572 |
+| F1-Score | 0.4811 | 0.6628 | 0.5808 | **0.6956** | 0.5820 |
+| Accuracy | 0.6385 | 0.8564 | 0.7675 | **0.8871** | 0.7685 |
 
 <p align="center">
   <img src="images/roc_comparison.png" width="45%" />
@@ -293,9 +293,11 @@ WhaleGuard_RBC_LSI/
 │       └── ML_Whale_Dataset_Final.csv    # Phase 5 (+ 3 spatial features) ← CURRENT
 ├── models/
 │   ├── xgb_narw_sdm.json               # Trained XGBoost model
+│   ├── rf_narw_sdm.joblib              # Trained Random Forest model
 │   ├── lr_narw_sdm.joblib              # Trained LR baseline model
-│   └── optimal_threshold.txt            # τ = 0.1718 for ≥80% recall
-├── images/                               # 27 publication-ready plots
+│   ├── optimal_threshold.txt            # XGBoost: τ = 0.1718 for ≥80% recall
+│   └── rf_optimal_threshold.txt         # RF: τ = 0.2454 for ≥80% recall
+├── images/                               # 30 publication-ready plots
 ├── logs/                                 # Pipeline execution logs
 ├── pipeline.py                           # Phase 1-2: ETL + pseudo-absences
 ├── phase3_feature_engineering.py         # Phase 3: SST gradient
@@ -303,6 +305,7 @@ WhaleGuard_RBC_LSI/
 ├── patch_slope_features.py              # Phase 5: Spatial features
 ├── train_logistic_regression.py          # LR baseline model
 ├── train_xgboost.py                     # XGBoost model + threshold opt.
+├── train_random_forest.py               # Random Forest model + threshold opt.
 ├── manual_test.py                        # Inference test with 4 scenarios
 ├── eda_narw_sdm.ipynb                    # Main EDA notebook
 ├── requirements.txt                      # Python dependencies
@@ -325,7 +328,7 @@ WhaleGuard_RBC_LSI/
 ## Future Work
 
 1. **SHAP Analysis:** Use the SHAP library to interpret specific model decisions and feature interactions locally.
-2. **Hyperparameter Optimisation:** Bayesian search (Optuna) for `max_depth`, `learning_rate`, `n_estimators`.
+2. ~~**Hyperparameter Optimisation:**~~ ✅ Completed — `GridSearchCV` (LR) and `RandomizedSearchCV` (XGBoost, RF) with `TimeSeriesSplit` temporal cross-validation.
 3. **Habitat Suitability Maps:** Generate gridded probability maps for arbitrary dates.
 4. **Longitude Fix:** Validate and correct positive-longitude sightings before Phase 1.
 5. **Cross-Validation:** Add blocked temporal CV for more robust AUC estimates.

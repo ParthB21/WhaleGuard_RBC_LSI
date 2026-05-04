@@ -47,6 +47,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
+from scipy.stats import loguniform
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -188,34 +190,46 @@ def main():
     print(f"  Test:  {len(X_test):,} rows  ({split_date.date()} → {dates.iloc[-1].date()})")
     print(f"  Train class balance: {n_pos_train:,} pos / {n_neg_train:,} neg (ratio 1:{ratio:.1f})")
 
-    # ── 4. Model Training ────────────────────────────────────────────
-    print_section("4. Logistic Regression Training")
+    # ── 4. Hyperparameter Tuning & Training ────────────────────────
+    print_section("4. Hyperparameter Tuning (GridSearchCV + TimeSeriesSplit)")
 
-    # Build a pipeline: Impute NaNs → Scale features → Logistic Regression
-    pipeline = Pipeline([
+    base_pipeline = Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
         ("scaler",  StandardScaler()),
         ("clf",     LogisticRegression(**LR_PARAMS)),
     ])
 
-    print(f"  Pipeline:")
-    print(f"    1. SimpleImputer (strategy=median)")
-    print(f"    2. StandardScaler (mean=0, std=1)")
-    print(f"    3. LogisticRegression")
-    print(f"  Regularisation:   L2 (Ridge), C={LR_PARAMS['C']}")
-    print(f"  Solver:           {LR_PARAMS['solver']}")
-    print(f"  Class weighting:  balanced (auto-compensates imbalance)")
-    print(f"  Max iterations:   {LR_PARAMS['max_iter']}")
-    print(f"\n  Training...", end="", flush=True)
+    param_distributions = {
+        "clf__C": loguniform(1e-3, 1e2),  # log-uniform over [0.001, 100]
+    }
+
+    tscv = TimeSeriesSplit(n_splits=3)
+    n_iter = 40
+    search = RandomizedSearchCV(
+        base_pipeline, param_distributions, n_iter=n_iter, cv=tscv,
+        scoring="roc_auc", n_jobs=-1, verbose=0, refit=True, random_state=42,
+    )
+
+    print(f"  Pipeline: Imputer → Scaler → LogisticRegression")
+    print(f"  Search space: C ~ loguniform(0.001, 100)")
+    print(f"  CV strategy: TimeSeriesSplit (3 folds, temporal ordering)")
+    print(f"  Scoring: ROC-AUC")
+    print(f"  Iterations: {n_iter} random samples")
+    print(f"  Total fits: {n_iter * 3}")
+    print(f"\n  Searching...", end="", flush=True)
 
     t_train = time.time()
-    pipeline.fit(X_train, y_train)
+    search.fit(X_train, y_train)
     train_time = time.time() - t_train
-    print(f" done in {train_time:.2f}s")
+    print(f" done in {train_time:.1f}s")
 
-    # Check convergence
+    print(f"\n  Best C: {search.best_params_['clf__C']:.6f}")
+    print(f"  Best CV ROC-AUC: {search.best_score_:.4f}")
+
+    # Final model (already refit on full training data by RandomizedSearchCV)
+    pipeline = search.best_estimator_
     lr_model = pipeline.named_steps["clf"]
-    print(f"  Converged:        {lr_model.n_iter_[0]} iterations")
+    print(f"  Converged in {lr_model.n_iter_[0]} iterations")
 
     # ── 5. Evaluation ────────────────────────────────────────────────
     print_section("5. Model Evaluation (Temporal Test Set)")
