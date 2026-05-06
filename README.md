@@ -328,10 +328,7 @@ WhaleGuard_RBC_LSI/
 ## Future Work
 
 1. **SHAP Analysis:** Use the SHAP library to interpret specific model decisions and feature interactions locally.
-2. ~~**Hyperparameter Optimisation:**~~ ✅ Completed — `GridSearchCV` (LR) and `RandomizedSearchCV` (XGBoost, RF) with `TimeSeriesSplit` temporal cross-validation.
-3. **Habitat Suitability Maps:** Generate gridded probability maps for arbitrary dates.
-4. **Longitude Fix:** Validate and correct positive-longitude sightings before Phase 1.
-5. **Cross-Validation:** Add blocked temporal CV for more robust AUC estimates.
+2. **Habitat Suitability Maps:** Generate gridded probability maps for arbitrary dates.
 
 ---
 
