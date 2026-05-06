@@ -74,7 +74,7 @@ The logistic regression pipeline chains these steps using `sklearn.Pipeline` to 
 
 ### Hyperparameter Tuning
 
-The regularisation strength `C` is tuned via `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=3)`, sampling from a log-uniform distribution to ensure equal coverage across orders of magnitude.
+The regularisation strength `C` is tuned via `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=4)`, sampling from a log-uniform distribution to ensure equal coverage across orders of magnitude.
 
 | Parameter | Value | Tuned? |
 |---|---|---|
@@ -90,11 +90,11 @@ The regularisation strength `C` is tuned via `RandomizedSearchCV` (40 iterations
 
 | Metric | Value |
 |---|---|
-| **ROC-AUC** | 0.8046 |
-| **Recall** | 0.8324 |
-| **Precision** | 0.3383 |
-| **F1-Score** | 0.4811 |
-| **Accuracy** | 0.6385 |
+| **ROC-AUC** | 0.8049 |
+| **Recall** | 0.8316 |
+| **Precision** | 0.3389 |
+| **F1-Score** | 0.4816 |
+| **Accuracy** | 0.6396 |
 
 The logistic regression achieves a respectable AUC of 0.804, confirming that the feature set carries meaningful signal. However, the low precision (33.9%) at high recall (83.4%) indicates that the linear decision boundary produces many false positives — locations where the model predicts whale presence but no whale is found.
 
@@ -126,7 +126,7 @@ Logistic regression coefficients (standardised) reveal the **direction and magni
 
 ### Hyperparameter Tuning
 
-XGBoost hyperparameters are tuned via `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=3)`, scoring on ROC-AUC. Search distributions use `scipy.stats` for dense, continuous coverage of the parameter space.
+XGBoost hyperparameters are tuned via `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=4)`, scoring on ROC-AUC. Search distributions use `scipy.stats` for dense, continuous coverage of the parameter space.
 
 **Best CV ROC-AUC: 0.9499**
 
@@ -167,7 +167,7 @@ Three architectural advantages make XGBoost the superior choice for this problem
 | **F1-Score** | 0.6628 |
 | **Accuracy** | 0.8564 |
 
-At the default threshold, the tuned XGBoost achieves a **+9.5 pp AUC improvement** over logistic regression (0.8991 vs. 0.8046). However, the recall of 69.4% means ~31% of whale locations would be missed — unacceptable for endangered species management.
+At the default threshold, the tuned XGBoost achieves a **+9.4 pp AUC improvement** over logistic regression (0.8991 vs. 0.8049). However, the recall of 69.4% means ~31% of whale locations would be missed — unacceptable for endangered species management.
 
 ---
 
@@ -184,7 +184,7 @@ By comparing RF against XGBoost, we can determine whether the sequential error-c
 
 ### Hyperparameter Tuning
 
-Random Forest hyperparameters are tuned via `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=3)`, scoring on ROC-AUC. Integer parameters use `scipy.stats.randint` for dense coverage; `max_features` remains a discrete list due to mixed types.
+Random Forest hyperparameters are tuned via `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=4)`, scoring on ROC-AUC. Integer parameters use `scipy.stats.randint` for dense coverage; `max_features` remains a discrete list due to mixed types.
 
 **Best CV ROC-AUC: 0.9447**
 
@@ -214,7 +214,7 @@ Like logistic regression, Random Forest in scikit-learn cannot handle NaN values
 | **F1-Score** | 0.6956 |
 | **Accuracy** | 0.8871 |
 
-The tuned Random Forest achieves the **highest AUC of all three models** (0.9041), a **+0.5 pp improvement over XGBoost** (0.8991) and **+10.0 pp over logistic regression** (0.8046). The OOB score of 0.9264 provides an independent validation estimate.
+The tuned Random Forest achieves the **highest AUC of all three models** (0.9041), a **+0.5 pp improvement over XGBoost** (0.8991) and **+9.9 pp over logistic regression** (0.8049). The OOB score of 0.9264 provides an independent validation estimate.
 
 ### Optimised Threshold Performance (τ = 0.2018)
 
@@ -287,15 +287,15 @@ The optimised model correctly identifies **80% of whale locations** while genera
 
 ### Performance Summary (All Models Tuned)
 
-All hyperparameters were tuned using `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit` (3 folds) and `scipy.stats` distributions for dense, continuous parameter space coverage.
+All hyperparameters were tuned using `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit` (4 folds) and `scipy.stats` distributions for dense, continuous parameter space coverage.
 
 | Metric | LR (Tuned) | XGBoost (τ=0.50) | XGBoost (τ=0.22) | RF (τ=0.50) | RF (τ=0.20) |
 |---|---|---|---|---|---|
-| **ROC-AUC** | 0.8046 | 0.8991 | 0.8991 | **0.9041** | **0.9041** |
-| **Recall** | 0.8324 | 0.7011 | 0.8002 ✓ | 0.6410 | **0.8006** ✓ |
-| **Precision** | 0.3383 | 0.6285 | 0.4559 | **0.7603** | 0.4572 |
-| **F1-Score** | 0.4811 | 0.6628 | 0.5808 | **0.6956** | 0.5820 |
-| **Accuracy** | 0.6385 | 0.8564 | 0.7675 | **0.8871** | 0.7685 |
+| **ROC-AUC** | 0.8049 | 0.8991 | 0.8991 | **0.9041** | **0.9041** |
+| **Recall** | 0.8316 | 0.7011 | 0.8002 ✓ | 0.6410 | **0.8006** ✓ |
+| **Precision** | 0.3389 | 0.6285 | 0.4559 | **0.7603** | 0.4572 |
+| **F1-Score** | 0.4816 | 0.6628 | 0.5808 | **0.6956** | 0.5820 |
+| **Accuracy** | 0.6396 | 0.8564 | 0.7675 | **0.8871** | 0.7685 |
 
 ![ROC comparison — XGBoost dominates LR across all operating points](images/roc_comparison.png)
 
@@ -303,7 +303,7 @@ All hyperparameters were tuned using `RandomizedSearchCV` (40 iterations) with `
 
 ### Key Observations
 
-1. **Random Forest achieves the highest AUC (0.9041)** — A **+0.5 pp improvement** over XGBoost (0.8991) and **+10.0 pp over LR** (0.8046). Using `scipy.stats` distributions improved XGBoost by +0.8 pp (0.8916→0.8991) and RF by +0.1 pp (0.9031→0.9041) compared to discrete-list tuning.
+1. **Random Forest achieves the highest AUC (0.9041)** — A **+0.5 pp improvement** over XGBoost (0.8991) and **+9.9 pp over LR** (0.8049). Using `scipy.stats` distributions improved XGBoost by +0.8 pp (0.8916→0.8991) and RF by +0.1 pp (0.9031→0.9041) compared to discrete-list tuning.
 
 2. **At 80% recall, both tree models are nearly identical** — RF produces 2,484 FP vs. XGBoost's 2,496 FP, and precision is 45.7% vs. 45.6%. The distribution-based tuning narrowed the gap between the two models.
 

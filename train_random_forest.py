@@ -218,7 +218,7 @@ def main():
         "clf__max_features":     ["sqrt", "log2", 0.3, 0.5],  # mixed types, keep as list
     }
 
-    tscv = TimeSeriesSplit(n_splits=3)
+    tscv = TimeSeriesSplit(n_splits=4)
     n_iter = 40
 
     search = RandomizedSearchCV(
@@ -236,9 +236,9 @@ def main():
     }
     for param in param_distributions:
         print(f"    {param.replace('clf__', ''):20s} ~ {dist_labels[param]}")
-    print(f"  CV strategy:      TimeSeriesSplit (3 folds, temporal ordering)")
+    print(f"  CV strategy:      TimeSeriesSplit (4 folds, temporal ordering)")
     print(f"  Iterations:       {n_iter} random samples")
-    print(f"  Total fits:       {n_iter * 3}")
+    print(f"  Total fits:       {n_iter * 4}")
     print(f"\n  Searching...", end="", flush=True)
 
     t_tune = time.time()

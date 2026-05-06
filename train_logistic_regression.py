@@ -203,7 +203,7 @@ def main():
         "clf__C": loguniform(1e-3, 1e2),  # log-uniform over [0.001, 100]
     }
 
-    tscv = TimeSeriesSplit(n_splits=3)
+    tscv = TimeSeriesSplit(n_splits=4)
     n_iter = 40
     search = RandomizedSearchCV(
         base_pipeline, param_distributions, n_iter=n_iter, cv=tscv,
@@ -212,10 +212,10 @@ def main():
 
     print(f"  Pipeline: Imputer → Scaler → LogisticRegression")
     print(f"  Search space: C ~ loguniform(0.001, 100)")
-    print(f"  CV strategy: TimeSeriesSplit (3 folds, temporal ordering)")
+    print(f"  CV strategy: TimeSeriesSplit (4 folds, temporal ordering)")
     print(f"  Scoring: ROC-AUC")
     print(f"  Iterations: {n_iter} random samples")
-    print(f"  Total fits: {n_iter * 3}")
+    print(f"  Total fits: {n_iter * 4}")
     print(f"\n  Searching...", end="", flush=True)
 
     t_train = time.time()
