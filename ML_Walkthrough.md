@@ -12,7 +12,7 @@
 1. [Modelling Strategy](#1-modelling-strategy)
 2. [Data Preparation & Temporal Split](#2-data-preparation--temporal-split)
 3. [Model A: Logistic Regression (Baseline)](#3-model-a-logistic-regression-baseline)
-4. [Model B: XGBoost (Primary)](#4-model-b-xgboost-primary)
+4. [Model B: XGBoost](#4-model-b-xgboost)
 5. [Model C: Random Forest](#5-model-c-random-forest)
 6. [Threshold Optimisation for Conservation](#6-threshold-optimisation-for-conservation)
 7. [Head-to-Head Comparison](#7-head-to-head-comparison)
@@ -26,9 +26,9 @@
 
 The WhaleGuard modelling strategy follows established ML research practice: **train a simple baseline model first, then compare it against more complex models to empirically justify the additional complexity.**
 
-| Aspect | Logistic Regression (Baseline) | Random Forest | XGBoost (Primary) |
+| Aspect | Logistic Regression (Baseline) | Random Forest | XGBoost |
 |---|---|---|---|
-| **Role** | Establishes interpretable lower bound | Bagged ensemble comparator | Production classifier |
+| **Role** | Establishes interpretable lower bound | Bagged ensemble comparator | Boosted ensemble comparator |
 | **Why chosen** | Provides coefficients and odds ratios for ecological interpretability | Quantifies the benefit of boosting over bagging; provides OOB error estimate | Handles non-linear interactions, missing values, and feature correlations natively |
 | **Missing values** | Median imputation required | Median imputation required | Sparsity-Aware Split Finding (Ji et al., 2024) — no imputation |
 | **Class imbalance** | `class_weight="balanced"` (auto-adjusts) | `class_weight="balanced_subsample"` (per-tree rebalancing) | `scale_pos_weight=4.0` (explicit ratio) |
@@ -36,7 +36,7 @@ The WhaleGuard modelling strategy follows established ML research practice: **tr
 
 ### Feature Exclusions
 
-Both models train on the same **10 features** and explicitly **exclude** `Lat`, `Lon`, and `Date` from the feature set. This is a deliberate design decision:
+All three models train on the same **10 features** and explicitly **exclude** `Lat`, `Lon`, and `Date` from the feature set. This is a deliberate design decision:
 
 - **Lat/Lon exclusion** forces the model to learn *ocean physics* (temperature, productivity, bathymetry) rather than memorise geographic coordinates. A model that memorises "this lat/lon had a whale" cannot generalise to new areas or account for range shifts under climate change.
 - **Date exclusion** prevents temporal leakage. The `Month` feature is retained as a cyclical seasonal proxy, but the exact date is dropped to avoid overfitting to specific survey events.
@@ -60,11 +60,11 @@ The temporal split is critical for this application. Ship strike management requ
 
 ### Preprocessing Differences
 
-| Step | Logistic Regression | XGBoost |
-|---|---|---|
-| Missing value handling | `SimpleImputer(strategy="median")` | Native (no imputation) |
-| Feature scaling | `StandardScaler(mean=0, std=1)` | Not required (tree-based) |
-| Boolean encoding | `Is_Thermal_Front` cast to int | `Is_Thermal_Front` cast to int |
+| Step | Logistic Regression | Random Forest | XGBoost |
+|---|---|---|---|
+| Missing value handling | `SimpleImputer(strategy="median")` | `SimpleImputer(strategy="median")` | Native (no imputation) |
+| Feature scaling | `StandardScaler(mean=0, std=1)` | Not required (tree-based) | Not required (tree-based) |
+| Boolean encoding | `Is_Thermal_Front` cast to int | `Is_Thermal_Front` cast to int | `Is_Thermal_Front` cast to int |
 
 The logistic regression pipeline chains these steps using `sklearn.Pipeline` to prevent data leakage — the scaler is fit only on training data and applied to test data.
 
@@ -98,7 +98,7 @@ The regularisation strength `C` is tuned via `RandomizedSearchCV` (40 iterations
 
 The logistic regression achieves a respectable AUC of 0.804, confirming that the feature set carries meaningful signal. However, the low precision (33.9%) at high recall (83.4%) indicates that the linear decision boundary produces many false positives — locations where the model predicts whale presence but no whale is found.
 
-![ROC curve for the logistic regression baseline — AUC = 0.8044, well above the random classifier diagonal](images/lr_roc_curve.png)
+![ROC curve for the logistic regression baseline — AUC = 0.8049, well above the random classifier diagonal](images/lr_roc_curve.png)
 
 ### Coefficient Analysis
 
@@ -167,7 +167,7 @@ Three architectural advantages make XGBoost the superior choice for this problem
 | **F1-Score** | 0.6628 |
 | **Accuracy** | 0.8564 |
 
-At the default threshold, the tuned XGBoost achieves a **+9.4 pp AUC improvement** over logistic regression (0.8991 vs. 0.8049). However, the recall of 69.4% means ~31% of whale locations would be missed — unacceptable for endangered species management.
+At the default threshold, the tuned XGBoost achieves a **+9.4 pp AUC improvement** over logistic regression (0.8991 vs. 0.8049). However, the recall of 70.1% means ~30% of whale locations would be missed — unacceptable for endangered species management.
 
 ---
 
@@ -235,9 +235,9 @@ The tuned Random Forest achieves the **highest AUC of all three models** (0.9041
 
 At the conservation-optimised threshold, the tuned Random Forest correctly identifies **80.1% of whale locations** while producing 2,484 false alarms — comparable to XGBoost (2,496).
 
-![ROC curve — Random Forest with AUC = 0.9031, the green dot marks the operating point at the optimised threshold τ=0.179](images/rf_roc_curve.png)
+![ROC curve — Random Forest with AUC = 0.9041, the green dot marks the operating point at the optimised threshold τ=0.2018](images/rf_roc_curve.png)
 
-![Precision-recall tradeoff curve for Random Forest — the green operating point (τ=0.179) achieves 81% recall at 47% precision](images/rf_precision_recall_tradeoff.png)
+![Precision-recall tradeoff curve for Random Forest — the green operating point (τ=0.2018) achieves 80.1% recall at 45.7% precision](images/rf_precision_recall_tradeoff.png)
 
 ---
 
@@ -256,7 +256,7 @@ This asymmetry demands that we **prioritise recall** (minimising false negatives
 
 We sweep all classification thresholds using the precision-recall curve and select the threshold that achieves **≥80% recall** with the highest possible precision:
 
-![Precision-recall tradeoff curve — the green operating point (τ=0.172) achieves 80% recall at 42% precision, meeting the conservation target](images/precision_recall_tradeoff.png)
+![Precision-recall tradeoff curve — the green operating point (τ=0.2229) achieves 80% recall at 45.6% precision, meeting the conservation target](images/precision_recall_tradeoff.png)
 
 **Optimal threshold (XGBoost): τ = 0.2229** (lowered from the default 0.50)
 
@@ -277,9 +277,9 @@ We sweep all classification thresholds using the precision-recall curve and sele
 | **Actual Absence** | 7,872 TN | 2,496 FP |
 | **Actual Presence** | 522 FN | 2,091 TP |
 
-The optimised model correctly identifies **80% of whale locations** while generating ~2,671 false alarms per test period. In operational terms, this means a conservative alerting system that errs on the side of caution — consistent with the precautionary principle applied in marine mammal management.
+The optimised model correctly identifies **80% of whale locations** while generating 2,496 false alarms per test period. In operational terms, this means a conservative alerting system that errs on the side of caution — consistent with the precautionary principle applied in marine mammal management.
 
-![ROC curve — XGBoost with AUC = 0.8916, the green dot marks the operating point at the optimised threshold τ=0.185](images/roc_curve.png)
+![ROC curve — XGBoost with AUC = 0.8991, the green dot marks the operating point at the optimised threshold τ=0.2229](images/roc_curve.png)
 
 ---
 
@@ -325,7 +325,7 @@ XGBoost's native gain metric measures the average improvement in loss function (
 
 ### Random Forest MDI-Based Importance
 
-Random Forest uses Mean Decrease in Impurity (MDI) — the total reduction in Gini impurity averaged across all 500 trees. Error bars show inter-tree variability.
+Random Forest uses Mean Decrease in Impurity (MDI) — the total reduction in Gini impurity averaged across all 712 trees. Error bars show inter-tree variability.
 
 ![Random Forest feature importance — Dist_to_Shore_km dominates (0.278), followed by Dist_to_Shelf_km (0.148) and Chlorophyll (0.137)](images/rf_feature_importance.png)
 
@@ -361,6 +361,48 @@ The agreement across a linear model, a boosted ensemble, and a bagged ensemble o
 
 `Month` ranks #3 in XGBoost gain but only #7 in Random Forest and dead last in logistic regression (coefficient ≈ 0). XGBoost's sequential boosting architecture is better at extracting conditional interactions (e.g., "Month=4 AND SST<10") because each tree builds on previous errors, making it more sensitive to interaction effects. Random Forest's independent trees capture some of this signal but less efficiently. Logistic regression cannot represent interactions at all without manual feature engineering.
 
+### SHAP Analysis (Interpretability)
+
+To further inspect model predictions and feature interactions, we perform comprehensive SHAP (SHapley Additive exPlanations) analysis across all candidate models in the dedicated [`shap_analysis.ipynb`](shap_analysis.ipynb) notebook. 
+
+The SHAP analysis generates four key visualisations:
+1. **Global Feature Importance (Bar Plot):** Ranks features by their mean absolute SHAP value, showing the overall magnitude of each feature's impact on model output.
+2. **Feature Impact Distribution (Beeswarm Summary):** Reveals how high vs. low values of specific features affect the output magnitude (e.g., lower distances to shore push the model towards predicting whale presence).
+3. **Feature Interaction (Dependence Plot):** Exposes complex, non-linear interactions, such as how the marginal effect of `Dist_to_Shore_km` changes depending on its value.
+4. **Local Explanation (Waterfall Plot):** Deconstructs the exact probability output for a single observation (a true positive whale detection), showing exactly how each feature contributed sequentially.
+
+Below are the SHAP visualisations for each of the three models:
+
+#### XGBoost Model
+<p align="center">
+  <img src="images/shap_xgb_bar.png" width="48%" />
+  <img src="images/shap_xgb_summary.png" width="48%" />
+</p>
+<p align="center">
+  <img src="images/shap_xgb_dependence.png" width="48%" />
+  <img src="images/shap_xgb_waterfall.png" width="48%" />
+</p>
+
+#### Random Forest Model
+<p align="center">
+  <img src="images/shap_rf_bar.png" width="48%" />
+  <img src="images/shap_rf_summary.png" width="48%" />
+</p>
+<p align="center">
+  <img src="images/shap_rf_dependence.png" width="48%" />
+  <img src="images/shap_rf_waterfall.png" width="48%" />
+</p>
+
+#### Logistic Regression Model (Baseline)
+<p align="center">
+  <img src="images/shap_lr_bar.png" width="48%" />
+  <img src="images/shap_lr_summary.png" width="48%" />
+</p>
+<p align="center">
+  <img src="images/shap_lr_dependence.png" width="48%" />
+  <img src="images/shap_lr_waterfall.png" width="48%" />
+</p>
+
 ---
 
 ## 9. Manual Inference Testing
@@ -384,7 +426,7 @@ To validate ecological plausibility beyond statistical metrics, we test the trai
 
 **Mid-Atlantic Ridge:** Correctly rejected. Abyssal depth (4,500m), warm oligotrophic water (22°C), extreme distance from shore (400 km), and no thermal front activity are incompatible with NARW ecology.
 
-**Florida Keys (August):** This scenario produces a probability of ~21.3%, which exceeds the 17.2% operational threshold. This is a known edge case: the model errs on the side of caution for a location that is warm (28°C) and in the wrong season but still close to shore (5 km). This is the expected behaviour of a high-recall, cautious model — a minor false positive that is preferable to missing a real whale.
+**Florida Keys (August):** This scenario produces a probability of ~21.3%, which is near the 22.3% operational threshold. This is a known edge case: the model errs on the side of caution for a location that is warm (28°C) and in the wrong season but still close to shore (5 km). This is the expected behaviour of a high-recall, cautious model — a minor borderline prediction that is preferable to missing a real whale.
 
 ---
 
@@ -394,11 +436,11 @@ To validate ecological plausibility beyond statistical metrics, we test the trai
 
 | File | Format | Size | Contents |
 |---|---|---|---|
-| `models/xgb_narw_sdm.json` | XGBoost JSON | 2.4 MB | Full trained XGBoost ensemble (500 trees) |
-| `models/rf_narw_sdm.joblib` | joblib Pipeline | ~50 MB | Complete RF pipeline (imputer + 500-tree classifier) |
+| `models/xgb_narw_sdm.json` | XGBoost JSON | ~22 MB | Full trained XGBoost ensemble (460 trees) |
+| `models/rf_narw_sdm.joblib` | joblib Pipeline | ~273 MB | Complete RF pipeline (imputer + 712-tree classifier) |
 | `models/lr_narw_sdm.joblib` | joblib Pipeline | 2.4 KB | Complete LR pipeline (imputer + scaler + classifier) |
-| `models/optimal_threshold.txt` | Plain text | 247 B | XGBoost: τ = 0.1718, with associated metrics |
-| `models/rf_optimal_threshold.txt` | Plain text | 260 B | RF: τ = 0.2454, with associated metrics |
+| `models/optimal_threshold.txt` | Plain text | 245 B | XGBoost: τ = 0.2229, with associated metrics |
+| `models/rf_optimal_threshold.txt` | Plain text | 259 B | RF: τ = 0.2018, with associated metrics |
 
 ### Inference Pipeline
 
@@ -408,7 +450,7 @@ To generate a prediction for a new (lat, lon, date) observation:
 1. Extract 10 environmental features using the same ETL pipeline
 2. Load model:  model = xgb.XGBClassifier(); model.load_model("models/xgb_narw_sdm.json")
 3. Predict:     probability = model.predict_proba(features)[0][1]
-4. Classify:    is_habitat = probability >= 0.1718
+4. Classify:    is_habitat = probability >= 0.2229
 ```
 
 ### Generated Visualisations
@@ -427,6 +469,9 @@ All model evaluation plots are saved to `images/` at 200 DPI:
 | `rf_feature_importance.png` | Random Forest MDI-based feature ranking (with error bars) |
 | `lr_coefficients.png` | LR coefficient bar chart |
 | `model_comparison.png` | Multi-metric comparison bar chart |
+| `shap_xgb_*.png` | XGBoost SHAP analysis (bar, beeswarm, dependence, waterfall) |
+| `shap_rf_*.png` | Random Forest SHAP analysis (bar, beeswarm, dependence, waterfall) |
+| `shap_lr_*.png` | Logistic Regression SHAP analysis (bar, beeswarm, dependence, waterfall) |
 
 ---
 

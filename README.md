@@ -2,7 +2,7 @@
 
 **Official repository for Project WhaleGuard by team Neural Network Navigators for RBC Borealis Let's SOLVE It Undergraduate Mentorship Program, Spring 2026 cohort.**
 
-A production-grade machine learning pipeline for predicting North Atlantic Right Whale (*Eubalaena glacialis*) habitat suitability using satellite-derived oceanographic data and an XGBoost classifier.
+A production-grade machine learning pipeline for predicting North Atlantic Right Whale (*Eubalaena glacialis*) habitat suitability using satellite-derived oceanographic data and ensemble tree classifiers.
 
 ## The Problem
 Current solutions are primarily reactive, utilizing acoustic buoys or satellite detection to flag whales only after they have entered a shipping lane. These systems often force vessels to brake suddenly, which disrupts supply chains. Furthermore, enterprise-grade systems are often too expensive for smaller vessels, such as fishing and lobster boats, leaving them without AI-enabled protection.
@@ -45,8 +45,8 @@ North Atlantic Right Whales are among the most endangered large whales on Earth 
 **Core question:** *Given oceanographic conditions at a location on a given day, what is the probability that a NARW is present?*
 
 **Model performance (all models tuned via `RandomizedSearchCV` + `scipy.stats` distributions):**
-- **ROC-AUC: 0.9041** (Random Forest — best model, strong discriminative power)
-- **Recall: 80.1%** at optimised threshold (τ = 0.2018)
+- **ROC-AUC: 0.9041** (Random Forest) / **0.8991** (XGBoost) — strong discriminative power
+- **Recall: ≥80%** at conservation-optimised thresholds (RF τ = 0.2018, XGBoost τ = 0.2229)
 - Trained on 51,920 rows, tested on 12,981 rows (temporal split)
 
 > For the complete model comparison, hyperparameter tuning details, and threshold optimisation rationale, see the [ML Walkthrough](ML_Walkthrough.md).
@@ -63,7 +63,7 @@ graph LR
     B --> C["Phase 3<br/>phase3_feature_engineering.py<br/>SST Gradient + Thermal Fronts"]
     C --> D["Phase 3.5<br/>patch_chlorophyll.py<br/>Chlorophyll Gap-Fill"]
     D --> E["Phase 5<br/>patch_slope_features.py<br/>Spatial Features"]
-    E --> F["Training<br/>train_xgboost.py<br/>XGBoost + Threshold Opt."]
+    E --> F["Training<br/>train_*.py<br/>LR / XGBoost / RF + Threshold Opt."]
 ```
 
 ### Phase 1 — Sighting Data + Pseudo-Absence Generation
@@ -295,8 +295,8 @@ WhaleGuard_RBC_LSI/
 │   ├── xgb_narw_sdm.json               # Trained XGBoost model
 │   ├── rf_narw_sdm.joblib              # Trained Random Forest model
 │   ├── lr_narw_sdm.joblib              # Trained LR baseline model
-│   ├── optimal_threshold.txt            # XGBoost: τ = 0.1718 for ≥80% recall
-│   └── rf_optimal_threshold.txt         # RF: τ = 0.2454 for ≥80% recall
+│   ├── optimal_threshold.txt            # XGBoost: τ = 0.2229 for ≥80% recall
+│   └── rf_optimal_threshold.txt         # RF: τ = 0.2018 for ≥80% recall
 ├── images/                               # 30 publication-ready plots
 ├── logs/                                 # Pipeline execution logs
 ├── pipeline.py                           # Phase 1-2: ETL + pseudo-absences
@@ -308,6 +308,7 @@ WhaleGuard_RBC_LSI/
 ├── train_random_forest.py               # Random Forest model + threshold opt.
 ├── manual_test.py                        # Inference test with 4 scenarios
 ├── eda_narw_sdm.ipynb                    # Main EDA notebook
+├── shap_analysis.ipynb                   # SHAP interpretability analysis
 ├── requirements.txt                      # Python dependencies
 ├── README.md                             # Project overview (this file)
 ├── EDA_Walkthrough.md                    # Technical EDA documentation
@@ -319,16 +320,21 @@ WhaleGuard_RBC_LSI/
 ## Known Issues & Edge Cases
 
 1. **November 2017 Presence Rate Anomaly:** 22 sightings in the Gulf of St. Lawrence have positive longitudes instead of negative. Acceptable as-is, but can be fixed in Phase 1 re-runs.
-2. **Chlorophyll NaNs (0.7%):** Gap-filled MODIS product doesn't cover extreme dates/locations. Handled natively by XGBoost.
-3. **Salinity NaNs (4.4%):** SMAP satellite has lower resolution and reduced coastal coverage. Handled natively by XGBoost.
-4. **Manual Test False Positive:** Florida Keys in August gives a 21.3% probability, barely exceeding the 17.2% threshold. This is expected from a high-recall, cautious model.
+2. **Chlorophyll NaNs (0.7%):** Gap-filled MODIS product doesn't cover extreme dates/locations. Handled natively by XGBoost; median-imputed for RF and LR.
+3. **Salinity NaNs (4.4%):** SMAP satellite has lower resolution and reduced coastal coverage. Handled natively by XGBoost; median-imputed for RF and LR.
+4. **Manual Test False Positive:** Florida Keys in August gives a 21.3% probability, barely exceeding the 22.3% XGBoost threshold. This is expected from a high-recall, cautious model.
+
+---
+
+## Interpretability (SHAP)
+
+We used SHAP (SHapley Additive exPlanations) to deeply analyze feature impacts across all three models. By utilizing game-theoretic credit allocation, the SHAP analysis (`shap_analysis.ipynb`) produces beeswarm summary plots, global importance bar charts, dependence plots, and local waterfall explanations for specific whale sightings. This provides transparency into exactly how features like `Dist_to_Shore_km` drive predictions.
 
 ---
 
 ## Future Work
 
-1. **SHAP Analysis:** Use the SHAP library to interpret specific model decisions and feature interactions locally.
-2. **Habitat Suitability Maps:** Generate gridded probability maps for arbitrary dates.
+1. **Habitat Suitability Maps:** Generate gridded probability maps for arbitrary dates.
 
 ---
 
