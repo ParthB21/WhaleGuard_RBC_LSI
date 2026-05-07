@@ -243,6 +243,17 @@ At the conservation-optimised threshold, the tuned Random Forest correctly ident
 
 ## 6. Threshold Optimisation for Conservation
 
+### Two-Stage Optimisation Strategy
+
+The WhaleGuard training pipeline uses a **two-stage optimisation** approach, where each stage targets a different objective:
+
+| Stage | What is Optimised | Objective | Method |
+|---|---|---|---|
+| **1. Hyperparameter Tuning** | Model parameters (learning_rate, max_depth, etc.) | Maximise **ROC-AUC** | `BayesSearchCV` with `TimeSeriesSplit` |
+| **2. Threshold Optimisation** | Classification cutoff (τ) | Achieve **≥80% recall** with max precision | Precision-recall curve sweep |
+
+**Why two separate stages?** ROC-AUC measures how well the model *ranks* whale locations above non-whale locations — it evaluates the quality of the probability estimates across all possible thresholds, without committing to any specific decision boundary. Once we have the best possible ranker (Stage 1), we then choose the *operating point* on that ranker that satisfies our conservation constraint (Stage 2). This is why ROC-AUC remains identical in the "Default" and "Optimised" columns of the performance tables — changing the threshold moves along the ROC curve but does not change the curve itself.
+
 ### The Conservation Calculus
 
 In endangered species management, the consequences of prediction errors are **asymmetric**:

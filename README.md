@@ -48,6 +48,7 @@ North Atlantic Right Whales are among the most endangered large whales on Earth 
 - **ROC-AUC: 0.9064** (Random Forest) / **0.9042** (XGBoost) — strong discriminative power
 - **Recall: ≥80%** at conservation-optimised thresholds (RF τ = 0.1543, XGBoost τ = 0.1950)
 - Trained on 51,920 rows, tested on 12,981 rows (temporal split)
+- **Two-stage optimisation:** hyperparameter tuning maximises ROC-AUC (ranking quality), then threshold optimisation achieves ≥80% recall (conservation constraint)
 
 > For the complete model comparison, hyperparameter tuning details, and threshold optimisation rationale, see the [ML Walkthrough](ML_Walkthrough.md).
 
