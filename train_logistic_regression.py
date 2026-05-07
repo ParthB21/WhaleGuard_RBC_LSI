@@ -47,8 +47,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
-from scipy.stats import loguniform
+from sklearn.model_selection import TimeSeriesSplit
+from skopt import BayesSearchCV
+from skopt.space import Real
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -191,7 +192,7 @@ def main():
     print(f"  Train class balance: {n_pos_train:,} pos / {n_neg_train:,} neg (ratio 1:{ratio:.1f})")
 
     # ── 4. Hyperparameter Tuning & Training ────────────────────────
-    print_section("4. Hyperparameter Tuning (GridSearchCV + TimeSeriesSplit)")
+    print_section("4. Hyperparameter Tuning (BayesSearchCV + TimeSeriesSplit)")
 
     base_pipeline = Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
@@ -200,21 +201,21 @@ def main():
     ])
 
     param_distributions = {
-        "clf__C": loguniform(1e-3, 1e2),  # log-uniform over [0.001, 100]
+        "clf__C": Real(1e-3, 1e2, prior="log-uniform"),
     }
 
     tscv = TimeSeriesSplit(n_splits=4)
     n_iter = 40
-    search = RandomizedSearchCV(
+    search = BayesSearchCV(
         base_pipeline, param_distributions, n_iter=n_iter, cv=tscv,
         scoring="roc_auc", n_jobs=-1, verbose=0, refit=True, random_state=42,
     )
 
     print(f"  Pipeline: Imputer → Scaler → LogisticRegression")
-    print(f"  Search space: C ~ loguniform(0.001, 100)")
+    print(f"  Search space: C ~ Real(0.001, 100, log-uniform)")
     print(f"  CV strategy: TimeSeriesSplit (4 folds, temporal ordering)")
     print(f"  Scoring: ROC-AUC")
-    print(f"  Iterations: {n_iter} random samples")
+    print(f"  Iterations: {n_iter} Bayesian optimisation steps")
     print(f"  Total fits: {n_iter * 4}")
     print(f"\n  Searching...", end="", flush=True)
 
@@ -226,7 +227,7 @@ def main():
     print(f"\n  Best C: {search.best_params_['clf__C']:.6f}")
     print(f"  Best CV ROC-AUC: {search.best_score_:.4f}")
 
-    # Final model (already refit on full training data by RandomizedSearchCV)
+    # Final model (already refit on full training data by BayesSearchCV)
     pipeline = search.best_estimator_
     lr_model = pipeline.named_steps["clf"]
     print(f"  Converged in {lr_model.n_iter_[0]} iterations")

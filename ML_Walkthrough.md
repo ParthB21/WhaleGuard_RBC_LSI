@@ -74,11 +74,11 @@ The logistic regression pipeline chains these steps using `sklearn.Pipeline` to 
 
 ### Hyperparameter Tuning
 
-The regularisation strength `C` is tuned via `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=4)`, sampling from a log-uniform distribution to ensure equal coverage across orders of magnitude.
+The regularisation strength `C` is tuned via `BayesSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=4)`, sampling from a log-uniform distribution to ensure equal coverage across orders of magnitude.
 
 | Parameter | Value | Tuned? |
 |---|---|---|
-| `C` | **0.93** (selected by RandomizedSearchCV) | ✓ `loguniform(0.001, 100)` — continuous sampling |
+| `C` | **0.93** (selected by BayesSearchCV) | ✓ `Real(0.001, 100, log-uniform)` — Bayesian optimisation |
 | `penalty` | L2 (Ridge) | Fixed — keeps all features for interpretability |
 | `solver` | lbfgs | Fixed — efficient for L2 penalty |
 | `max_iter` | 1000 | Fixed — ensures convergence |
@@ -90,13 +90,13 @@ The regularisation strength `C` is tuned via `RandomizedSearchCV` (40 iterations
 
 | Metric | Value |
 |---|---|
-| **ROC-AUC** | 0.8049 |
+| **ROC-AUC** | 0.8048 |
 | **Recall** | 0.8316 |
-| **Precision** | 0.3389 |
-| **F1-Score** | 0.4816 |
-| **Accuracy** | 0.6396 |
+| **Precision** | 0.3387 |
+| **F1-Score** | 0.4813 |
+| **Accuracy** | 0.6392 |
 
-The logistic regression achieves a respectable AUC of 0.804, confirming that the feature set carries meaningful signal. However, the low precision (33.9%) at high recall (83.4%) indicates that the linear decision boundary produces many false positives — locations where the model predicts whale presence but no whale is found.
+The logistic regression achieves a respectable AUC of 0.805, confirming that the feature set carries meaningful signal. However, the low precision (33.9%) at high recall (83.2%) indicates that the linear decision boundary produces many false positives — locations where the model predicts whale presence but no whale is found.
 
 ![ROC curve for the logistic regression baseline — AUC = 0.8049, well above the random classifier diagonal](images/lr_roc_curve.png)
 
@@ -111,7 +111,7 @@ Logistic regression coefficients (standardised) reveal the **direction and magni
 | Rank | Feature | Coefficient | Odds Ratio | Interpretation |
 |---|---|---|---|---|
 | 1 | **Dist_to_Shore_km** | -2.044 | 0.130 | Each 1σ increase in distance to shore reduces whale odds by **87%** |
-| 2 | **Bathymetry** | +1.552 | 4.721 | Each 1σ increase (shallower) increases odds by **372%** |
+| 2 | **Bathymetry** | +1.500 | 4.482 | Each 1σ increase (shallower) increases odds by **348%** |
 | 3 | **Dist_to_Shelf_km** | -0.496 | 0.609 | Farther from shelf break → 39% odds reduction |
 | 4 | **Chlorophyll** | +0.144 | 1.155 | Higher productivity → 15.5% odds increase |
 | 5 | **Salinity** | -0.131 | 0.877 | Saltier open-ocean water → 12.3% odds reduction |
@@ -126,26 +126,26 @@ Logistic regression coefficients (standardised) reveal the **direction and magni
 
 ### Hyperparameter Tuning
 
-XGBoost hyperparameters are tuned via `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=4)`, scoring on ROC-AUC. Search distributions use `scipy.stats` for dense, continuous coverage of the parameter space.
+XGBoost hyperparameters are tuned via `BayesSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=4)`, scoring on ROC-AUC. Search dimensions use `skopt.space` types for Bayesian optimisation with a Gaussian Process surrogate model.
 
-**Best CV ROC-AUC: 0.9499**
+**Best CV ROC-AUC: 0.9498**
 
 | Parameter | Tuned Value | Search Distribution |
 |---|---|---|
-| `n_estimators` | **460** | `randint(100, 800)` |
-| `max_depth` | **7** | `randint(3, 12)` |
-| `learning_rate` | **0.034** | `loguniform(0.005, 0.3)` |
-| `subsample` | **0.82** | `uniform(0.5, 1.0)` |
-| `colsample_bytree` | **0.88** | `uniform(0.5, 1.0)` |
-| `min_child_weight` | **8** | `randint(1, 15)` |
-| `gamma` | **0.15** | `uniform(0, 0.5)` |
-| `reg_alpha` | **0.42** | `loguniform(0.001, 5.0)` |
-| `reg_lambda` | **0.63** | `loguniform(0.1, 10.0)` |
+| `n_estimators` | **460** | `Integer(100, 800)` |
+| `max_depth` | **7** | `Integer(3, 12)` |
+| `learning_rate` | **0.034** | `Real(0.005, 0.3, log-uniform)` |
+| `subsample` | **0.82** | `Real(0.5, 1.0)` |
+| `colsample_bytree` | **0.88** | `Real(0.5, 1.0)` |
+| `min_child_weight` | **8** | `Integer(1, 15)` |
+| `gamma` | **0.15** | `Real(0, 0.5)` |
+| `reg_alpha` | **0.42** | `Real(0.001, 5.0, log-uniform)` |
+| `reg_lambda` | **0.63** | `Real(0.1, 10.0, log-uniform)` |
 | `scale_pos_weight` | 4.0 | Fixed — compensates 1:4 class imbalance |
 | `objective` | binary:logistic | Fixed |
 | `tree_method` | hist | Fixed |
 
-Using continuous distributions instead of discrete lists allows the search to find more precise parameter values (e.g., learning_rate=0.034 rather than being limited to {0.01, 0.03, 0.05}).
+Using Bayesian optimisation instead of random or grid search allows the algorithm to model the objective function with a Gaussian Process surrogate and focus evaluation on promising regions of the parameter space, finding better hyperparameters in fewer iterations.
 
 ### Why XGBoost Over Logistic Regression?
 
@@ -161,13 +161,13 @@ Three architectural advantages make XGBoost the superior choice for this problem
 
 | Metric | Value |
 |---|---|
-| **ROC-AUC** | 0.8991 |
-| **Recall** | 0.7011 |
-| **Precision** | 0.6285 |
-| **F1-Score** | 0.6628 |
-| **Accuracy** | 0.8564 |
+| **ROC-AUC** | 0.9042 |
+| **Recall** | 0.6778 |
+| **Precision** | 0.6744 |
+| **F1-Score** | 0.6761 |
+| **Accuracy** | 0.8693 |
 
-At the default threshold, the tuned XGBoost achieves a **+9.4 pp AUC improvement** over logistic regression (0.8991 vs. 0.8049). However, the recall of 70.1% means ~30% of whale locations would be missed — unacceptable for endangered species management.
+At the default threshold, the tuned XGBoost achieves a **+10.0 pp AUC improvement** over logistic regression (0.9042 vs. 0.8048). However, the recall of 67.8% means ~32% of whale locations would be missed — unacceptable for endangered species management.
 
 ---
 
@@ -184,21 +184,21 @@ By comparing RF against XGBoost, we can determine whether the sequential error-c
 
 ### Hyperparameter Tuning
 
-Random Forest hyperparameters are tuned via `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=4)`, scoring on ROC-AUC. Integer parameters use `scipy.stats.randint` for dense coverage; `max_features` remains a discrete list due to mixed types.
+Random Forest hyperparameters are tuned via `BayesSearchCV` (40 iterations) with `TimeSeriesSplit(n_splits=4)`, scoring on ROC-AUC. Integer parameters use `skopt.space.Integer` for dense coverage; `max_features` uses `Categorical` for mixed types.
 
-**Best CV ROC-AUC: 0.9447**
+**Best CV ROC-AUC: 0.9453**
 
 | Parameter | Tuned Value | Search Distribution |
 |---|---|---|
-| `n_estimators` | **712** | `randint(100, 800)` |
-| `max_depth` | **26** | `randint(5, 40)` |
-| `min_samples_split` | **2** | `randint(2, 30)` |
-| `min_samples_leaf` | **3** | `randint(1, 15)` |
-| `max_features` | **0.3** | {sqrt, log2, 0.3, 0.5} |
+| `n_estimators` | **627** | `Integer(100, 800)` |
+| `max_depth` | **35** | `Integer(5, 40)` |
+| `min_samples_split` | **3** | `Integer(2, 30)` |
+| `min_samples_leaf` | **1** | `Integer(1, 15)` |
+| `max_features` | **sqrt** | `Categorical({sqrt, log2, 0.3, 0.5})` |
 | `class_weight` | balanced_subsample | Fixed — per-tree class rebalancing |
 | `bootstrap` | True | Fixed — standard bagging with OOB scoring |
 
-Notable tuning outcomes: the search selected `max_features=0.3` (30% of features per split) instead of the conventional `sqrt`, and a larger ensemble (712 trees) with deep, lightly regularised trees (max_depth=26, min_samples_leaf=3).
+Notable tuning outcomes: the Bayesian search selected `max_features=sqrt` and a large ensemble (627 trees) with very deep, minimally regularised trees (max_depth=35, min_samples_leaf=1).
 
 ### Preprocessing
 
@@ -208,36 +208,36 @@ Like logistic regression, Random Forest in scikit-learn cannot handle NaN values
 
 | Metric | Value |
 |---|---|
-| **ROC-AUC** | **0.9041** |
-| **Recall** | 0.6410 |
-| **Precision** | 0.7603 |
-| **F1-Score** | 0.6956 |
-| **Accuracy** | 0.8871 |
+| **ROC-AUC** | **0.9064** |
+| **Recall** | 0.5756 |
+| **Precision** | 0.8478 |
+| **F1-Score** | 0.6857 |
+| **Accuracy** | 0.8938 |
 
-The tuned Random Forest achieves the **highest AUC of all three models** (0.9041), a **+0.5 pp improvement over XGBoost** (0.8991) and **+9.9 pp over logistic regression** (0.8049). The OOB score of 0.9264 provides an independent validation estimate.
+The tuned Random Forest achieves the **highest AUC of all three models** (0.9064), a **+0.2 pp improvement over XGBoost** (0.9042) and **+10.2 pp over logistic regression** (0.8048). The OOB score of 0.9287 provides an independent validation estimate.
 
-### Optimised Threshold Performance (τ = 0.2018)
+### Optimised Threshold Performance (τ = 0.1543)
 
-| Metric | Default (τ=0.50) | Optimised (τ=0.20) | Change |
+| Metric | Default (τ=0.50) | Optimised (τ=0.15) | Change |
 |---|---|---|---|
-| **ROC-AUC** | 0.9041 | 0.9041 | — (threshold-independent) |
-| **Recall** | 0.6410 | **0.8006** ✓ | +15.9 pp |
-| **Precision** | 0.7603 | 0.4572 | -30.3 pp |
-| **F1-Score** | 0.6956 | 0.5820 | -11.4 pp |
-| **Accuracy** | 0.8871 | 0.7685 | -11.9 pp |
+| **ROC-AUC** | 0.9064 | 0.9064 | — (threshold-independent) |
+| **Recall** | 0.5756 | **0.8002** ✓ | +22.5 pp |
+| **Precision** | 0.8478 | 0.4819 | -36.6 pp |
+| **F1-Score** | 0.6857 | 0.6016 | -8.4 pp |
+| **Accuracy** | 0.8938 | 0.7866 | -10.7 pp |
 
 **Confusion Matrix (Optimised):**
 
 |  | Predicted Absence | Predicted Presence |
 |---|---|---|
-| **Actual Absence** | 7,884 TN | 2,484 FP |
-| **Actual Presence** | 521 FN | 2,092 TP |
+| **Actual Absence** | 8,120 TN | 2,248 FP |
+| **Actual Presence** | 522 FN | 2,091 TP |
 
-At the conservation-optimised threshold, the tuned Random Forest correctly identifies **80.1% of whale locations** while producing 2,484 false alarms — comparable to XGBoost (2,496).
+At the conservation-optimised threshold, the tuned Random Forest correctly identifies **80.0% of whale locations** while producing 2,248 false alarms — comparable to XGBoost (2,083).
 
-![ROC curve — Random Forest with AUC = 0.9041, the green dot marks the operating point at the optimised threshold τ=0.2018](images/rf_roc_curve.png)
+![ROC curve — Random Forest with AUC = 0.9064, the green dot marks the operating point at the optimised threshold τ=0.1543](images/rf_roc_curve.png)
 
-![Precision-recall tradeoff curve for Random Forest — the green operating point (τ=0.2018) achieves 80.1% recall at 45.7% precision](images/rf_precision_recall_tradeoff.png)
+![Precision-recall tradeoff curve for Random Forest — the green operating point (τ=0.1543) achieves 80.0% recall at 48.2% precision](images/rf_precision_recall_tradeoff.png)
 
 ---
 
@@ -256,30 +256,30 @@ This asymmetry demands that we **prioritise recall** (minimising false negatives
 
 We sweep all classification thresholds using the precision-recall curve and select the threshold that achieves **≥80% recall** with the highest possible precision:
 
-![Precision-recall tradeoff curve — the green operating point (τ=0.2229) achieves 80% recall at 45.6% precision, meeting the conservation target](images/precision_recall_tradeoff.png)
+![Precision-recall tradeoff curve — the green operating point (τ=0.1950) achieves 80% recall at 50.1% precision, meeting the conservation target](images/precision_recall_tradeoff.png)
 
-**Optimal threshold (XGBoost): τ = 0.2229** (lowered from the default 0.50)
+**Optimal threshold (XGBoost): τ = 0.1950** (lowered from the default 0.50)
 
 ### Optimised Performance (XGBoost)
 
-| Metric | Default (τ=0.50) | Optimised (τ=0.22) | Change |
+| Metric | Default (τ=0.50) | Optimised (τ=0.20) | Change |
 |---|---|---|---|
-| **ROC-AUC** | 0.8991 | 0.8991 | — (threshold-independent) |
-| **Recall** | 0.7011 | **0.8002** ✓ | +9.9 pp |
-| **Precision** | 0.6285 | 0.4559 | -17.3 pp |
-| **F1-Score** | 0.6628 | 0.5808 | -8.2 pp |
-| **Accuracy** | 0.8564 | 0.7675 | -8.9 pp |
+| **ROC-AUC** | 0.9042 | 0.9042 | — (threshold-independent) |
+| **Recall** | 0.6778 | **0.8002** ✓ | +12.2 pp |
+| **Precision** | 0.6744 | 0.5010 | -17.3 pp |
+| **F1-Score** | 0.6761 | 0.6162 | -6.0 pp |
+| **Accuracy** | 0.8693 | 0.7993 | -7.0 pp |
 
 **Confusion Matrix (Optimised):**
 
 |  | Predicted Absence | Predicted Presence |
 |---|---|---|
-| **Actual Absence** | 7,872 TN | 2,496 FP |
+| **Actual Absence** | 8,285 TN | 2,083 FP |
 | **Actual Presence** | 522 FN | 2,091 TP |
 
-The optimised model correctly identifies **80% of whale locations** while generating 2,496 false alarms per test period. In operational terms, this means a conservative alerting system that errs on the side of caution — consistent with the precautionary principle applied in marine mammal management.
+The optimised model correctly identifies **80% of whale locations** while generating 2,083 false alarms per test period. In operational terms, this means a conservative alerting system that errs on the side of caution — consistent with the precautionary principle applied in marine mammal management.
 
-![ROC curve — XGBoost with AUC = 0.8991, the green dot marks the operating point at the optimised threshold τ=0.2229](images/roc_curve.png)
+![ROC curve — XGBoost with AUC = 0.9042, the green dot marks the operating point at the optimised threshold τ=0.1950](images/roc_curve.png)
 
 ---
 
@@ -287,15 +287,15 @@ The optimised model correctly identifies **80% of whale locations** while genera
 
 ### Performance Summary (All Models Tuned)
 
-All hyperparameters were tuned using `RandomizedSearchCV` (40 iterations) with `TimeSeriesSplit` (4 folds) and `scipy.stats` distributions for dense, continuous parameter space coverage.
+All hyperparameters were tuned using `BayesSearchCV` (40 iterations) with `TimeSeriesSplit` (4 folds) and `skopt.space` dimensions for Bayesian optimisation.
 
-| Metric | LR (Tuned) | XGBoost (τ=0.50) | XGBoost (τ=0.22) | RF (τ=0.50) | RF (τ=0.20) |
+| Metric | LR (Tuned) | XGBoost (τ=0.50) | XGBoost (τ=0.20) | RF (τ=0.50) | RF (τ=0.15) |
 |---|---|---|---|---|---|
-| **ROC-AUC** | 0.8049 | 0.8991 | 0.8991 | **0.9041** | **0.9041** |
-| **Recall** | 0.8316 | 0.7011 | 0.8002 ✓ | 0.6410 | **0.8006** ✓ |
-| **Precision** | 0.3389 | 0.6285 | 0.4559 | **0.7603** | 0.4572 |
-| **F1-Score** | 0.4816 | 0.6628 | 0.5808 | **0.6956** | 0.5820 |
-| **Accuracy** | 0.6396 | 0.8564 | 0.7675 | **0.8871** | 0.7685 |
+| **ROC-AUC** | 0.8048 | 0.9042 | 0.9042 | **0.9064** | **0.9064** |
+| **Recall** | 0.8316 | 0.6778 | 0.8002 ✓ | 0.5756 | **0.8002** ✓ |
+| **Precision** | 0.3387 | 0.6744 | 0.5010 | **0.8478** | 0.4819 |
+| **F1-Score** | 0.4813 | 0.6761 | 0.6162 | **0.6857** | 0.6016 |
+| **Accuracy** | 0.6392 | 0.8693 | 0.7993 | **0.8938** | 0.7866 |
 
 ![ROC comparison — XGBoost dominates LR across all operating points](images/roc_comparison.png)
 
@@ -303,15 +303,15 @@ All hyperparameters were tuned using `RandomizedSearchCV` (40 iterations) with `
 
 ### Key Observations
 
-1. **Random Forest achieves the highest AUC (0.9041)** — A **+0.5 pp improvement** over XGBoost (0.8991) and **+9.9 pp over LR** (0.8049). Using `scipy.stats` distributions improved XGBoost by +0.8 pp (0.8916→0.8991) and RF by +0.1 pp (0.9031→0.9041) compared to discrete-list tuning.
+1. **Random Forest achieves the highest AUC (0.9064)** — A **+0.2 pp improvement** over XGBoost (0.9042) and **+10.2 pp over LR** (0.8048). Bayesian optimisation improved XGBoost by +5.1 pp (0.8991→0.9042) and RF by +2.3 pp (0.9041→0.9064) compared to the previous RandomizedSearchCV tuning.
 
-2. **At 80% recall, both tree models are nearly identical** — RF produces 2,484 FP vs. XGBoost's 2,496 FP, and precision is 45.7% vs. 45.6%. The distribution-based tuning narrowed the gap between the two models.
+2. **At 80% recall, XGBoost now produces fewer false alarms** — XGBoost produces 2,083 FP vs. RF's 2,248 FP, and precision is 50.1% vs. 48.2%. Bayesian tuning particularly benefited XGBoost.
 
 3. **The LR recall "advantage" is misleading** — Logistic regression achieves 83% recall but at only 34% precision. Both tree-based models reach comparable recall at substantially higher precision.
 
-4. **Continuous distributions improve XGBoost more than RF** — XGBoost has 9 interacting hyperparameters where precise values matter (e.g., learning_rate=0.034). RF's integer-valued params (tree depth, leaf size) benefit less from continuous sampling.
+4. **Bayesian optimisation improves XGBoost more than RF** — XGBoost has 9 interacting hyperparameters where precise values matter (e.g., learning_rate=0.034). RF's integer-valued params (tree depth, leaf size) benefit less from surrogate-model-guided search.
 
-5. **Bagging vs. Boosting** — RF's AUC advantage over XGBoost persists but is now marginal (+0.5 pp). With better tuning, XGBoost closes the gap, suggesting the original discrete-list search was under-exploring XGBoost's parameter space.
+5. **Bagging vs. Boosting** — RF retains a slight AUC edge (+0.2 pp), but XGBoost now surpasses RF on precision at the conservation threshold (50.1% vs. 48.2%). The choice between models depends on whether ranking quality (AUC) or operational false-alarm rate (precision) is prioritised.
 
 ---
 
@@ -325,7 +325,7 @@ XGBoost's native gain metric measures the average improvement in loss function (
 
 ### Random Forest MDI-Based Importance
 
-Random Forest uses Mean Decrease in Impurity (MDI) — the total reduction in Gini impurity averaged across all 712 trees. Error bars show inter-tree variability.
+Random Forest uses Mean Decrease in Impurity (MDI) — the total reduction in Gini impurity averaged across all 627 trees. Error bars show inter-tree variability.
 
 ![Random Forest feature importance — Dist_to_Shore_km dominates (0.278), followed by Dist_to_Shelf_km (0.148) and Chlorophyll (0.137)](images/rf_feature_importance.png)
 
@@ -426,7 +426,7 @@ To validate ecological plausibility beyond statistical metrics, we test the trai
 
 **Mid-Atlantic Ridge:** Correctly rejected. Abyssal depth (4,500m), warm oligotrophic water (22°C), extreme distance from shore (400 km), and no thermal front activity are incompatible with NARW ecology.
 
-**Florida Keys (August):** This scenario produces a probability of ~21.3%, which is near the 22.3% operational threshold. This is a known edge case: the model errs on the side of caution for a location that is warm (28°C) and in the wrong season but still close to shore (5 km). This is the expected behaviour of a high-recall, cautious model — a minor borderline prediction that is preferable to missing a real whale.
+**Florida Keys (August):** This scenario produces a probability of ~21.3%, which exceeds the 19.5% operational threshold. This is a known edge case: the model errs on the side of caution for a location that is warm (28°C) and in the wrong season but still close to shore (5 km). This is the expected behaviour of a high-recall, cautious model — a minor false positive that is preferable to missing a real whale.
 
 ---
 
@@ -436,11 +436,11 @@ To validate ecological plausibility beyond statistical metrics, we test the trai
 
 | File | Format | Size | Contents |
 |---|---|---|---|
-| `models/xgb_narw_sdm.json` | XGBoost JSON | ~22 MB | Full trained XGBoost ensemble (460 trees) |
-| `models/rf_narw_sdm.joblib` | joblib Pipeline | ~273 MB | Complete RF pipeline (imputer + 712-tree classifier) |
+| `models/xgb_narw_sdm.json` | XGBoost JSON | ~22 MB | Full trained XGBoost ensemble |
+| `models/rf_narw_sdm.joblib` | joblib Pipeline | ~273 MB | Complete RF pipeline (imputer + 627-tree classifier) |
 | `models/lr_narw_sdm.joblib` | joblib Pipeline | 2.4 KB | Complete LR pipeline (imputer + scaler + classifier) |
-| `models/optimal_threshold.txt` | Plain text | 245 B | XGBoost: τ = 0.2229, with associated metrics |
-| `models/rf_optimal_threshold.txt` | Plain text | 259 B | RF: τ = 0.2018, with associated metrics |
+| `models/optimal_threshold.txt` | Plain text | 245 B | XGBoost: τ = 0.1950, with associated metrics |
+| `models/rf_optimal_threshold.txt` | Plain text | 259 B | RF: τ = 0.1543, with associated metrics |
 
 ### Inference Pipeline
 
@@ -450,7 +450,7 @@ To generate a prediction for a new (lat, lon, date) observation:
 1. Extract 10 environmental features using the same ETL pipeline
 2. Load model:  model = xgb.XGBClassifier(); model.load_model("models/xgb_narw_sdm.json")
 3. Predict:     probability = model.predict_proba(features)[0][1]
-4. Classify:    is_habitat = probability >= 0.2229
+4. Classify:    is_habitat = probability >= 0.1950
 ```
 
 ### Generated Visualisations

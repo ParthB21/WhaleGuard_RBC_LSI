@@ -45,8 +45,9 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
-from scipy.stats import randint, uniform
+from sklearn.model_selection import TimeSeriesSplit
+from skopt import BayesSearchCV
+from skopt.space import Real, Integer, Categorical
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -195,7 +196,7 @@ def main():
     print(f"  Train class balance: {n_pos_train:,} pos / {n_neg_train:,} neg (ratio 1:{ratio:.1f})")
 
     # ── 4. Hyperparameter Tuning & Training ────────────────────────
-    print_section("4. Hyperparameter Tuning (RandomizedSearchCV + TimeSeriesSplit)")
+    print_section("4. Hyperparameter Tuning (BayesSearchCV + TimeSeriesSplit)")
 
     # Build base pipeline: Impute NaNs → Random Forest
     base_pipeline = Pipeline([
@@ -209,19 +210,19 @@ def main():
         )),
     ])
 
-    # Search space
+    # Search space (skopt Bayesian dimensions)
     param_distributions = {
-        "clf__n_estimators":     randint(100, 800),
-        "clf__max_depth":        randint(5, 40),
-        "clf__min_samples_split": randint(2, 30),
-        "clf__min_samples_leaf":  randint(1, 15),
-        "clf__max_features":     ["sqrt", "log2", 0.3, 0.5],  # mixed types, keep as list
+        "clf__n_estimators":     Integer(100, 800),
+        "clf__max_depth":        Integer(5, 40),
+        "clf__min_samples_split": Integer(2, 30),
+        "clf__min_samples_leaf":  Integer(1, 15),
+        "clf__max_features":     Categorical(["sqrt", "log2", 0.3, 0.5]),
     }
 
     tscv = TimeSeriesSplit(n_splits=4)
     n_iter = 40
 
-    search = RandomizedSearchCV(
+    search = BayesSearchCV(
         base_pipeline, param_distributions, n_iter=n_iter,
         cv=tscv, scoring="roc_auc", n_jobs=1,  # n_jobs=1 here since RF already uses all cores
         random_state=42, verbose=0, refit=False,
@@ -230,14 +231,14 @@ def main():
     print(f"  Pipeline: Imputer → RandomForestClassifier")
     print(f"  Search space:     {len(param_distributions)} hyperparameters")
     dist_labels = {
-        "clf__n_estimators": "randint(100, 800)", "clf__max_depth": "randint(5, 40)",
-        "clf__min_samples_split": "randint(2, 30)", "clf__min_samples_leaf": "randint(1, 15)",
-        "clf__max_features": "['sqrt', 'log2', 0.3, 0.5]",
+        "clf__n_estimators": "Integer(100, 800)", "clf__max_depth": "Integer(5, 40)",
+        "clf__min_samples_split": "Integer(2, 30)", "clf__min_samples_leaf": "Integer(1, 15)",
+        "clf__max_features": "Categorical(['sqrt', 'log2', 0.3, 0.5])",
     }
     for param in param_distributions:
         print(f"    {param.replace('clf__', ''):20s} ~ {dist_labels[param]}")
     print(f"  CV strategy:      TimeSeriesSplit (4 folds, temporal ordering)")
-    print(f"  Iterations:       {n_iter} random samples")
+    print(f"  Iterations:       {n_iter} Bayesian optimisation steps")
     print(f"  Total fits:       {n_iter * 4}")
     print(f"\n  Searching...", end="", flush=True)
 

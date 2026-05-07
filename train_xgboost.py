@@ -49,8 +49,9 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
-from scipy.stats import randint, uniform, loguniform
+from sklearn.model_selection import TimeSeriesSplit
+from skopt import BayesSearchCV
+from skopt.space import Real, Integer
 
 # =========================================================================
 #  Configuration
@@ -179,7 +180,7 @@ def main():
     print(f"  Train class balance: {n_pos_train:,} pos / {n_neg_train:,} neg (ratio 1:{ratio:.1f})")
 
     # ── 4. Hyperparameter Tuning & Training ────────────────────────
-    print_section("4. Hyperparameter Tuning (RandomizedSearchCV + TimeSeriesSplit)")
+    print_section("4. Hyperparameter Tuning (BayesSearchCV + TimeSeriesSplit)")
 
     # Fixed params (not tuned)
     fixed_params = {
@@ -191,24 +192,24 @@ def main():
         "scale_pos_weight": ratio,
     }
 
-    # Search space
+    # Search space (skopt Bayesian dimensions)
     param_distributions = {
-        "n_estimators":     randint(100, 800),
-        "max_depth":        randint(3, 12),
-        "learning_rate":    loguniform(0.005, 0.3),
-        "subsample":        uniform(0.5, 0.5),       # [0.5, 1.0]
-        "colsample_bytree": uniform(0.5, 0.5),       # [0.5, 1.0]
-        "min_child_weight": randint(1, 15),
-        "gamma":            uniform(0, 0.5),
-        "reg_alpha":        loguniform(0.001, 5.0),
-        "reg_lambda":       loguniform(0.1, 10.0),
+        "n_estimators":     Integer(100, 800),
+        "max_depth":        Integer(3, 12),
+        "learning_rate":    Real(0.005, 0.3, prior="log-uniform"),
+        "subsample":        Real(0.5, 1.0, prior="uniform"),
+        "colsample_bytree": Real(0.5, 1.0, prior="uniform"),
+        "min_child_weight": Integer(1, 15),
+        "gamma":            Real(0.0, 0.5, prior="uniform"),
+        "reg_alpha":        Real(0.001, 5.0, prior="log-uniform"),
+        "reg_lambda":       Real(0.1, 10.0, prior="log-uniform"),
     }
 
     base_model = xgb.XGBClassifier(**fixed_params)
     tscv = TimeSeriesSplit(n_splits=4)
     n_iter = 40
 
-    search = RandomizedSearchCV(
+    search = BayesSearchCV(
         base_model, param_distributions, n_iter=n_iter,
         cv=tscv, scoring="roc_auc", n_jobs=-1,
         random_state=42, verbose=0, refit=False,
@@ -218,16 +219,16 @@ def main():
     print(f"  scale_pos_weight: {ratio:.2f} (fixed, compensates 1:{ratio:.0f} imbalance)")
     print(f"  Search space:     {len(param_distributions)} hyperparameters")
     dist_labels = {
-        "n_estimators": "randint(100, 800)", "max_depth": "randint(3, 12)",
-        "learning_rate": "loguniform(0.005, 0.3)", "subsample": "uniform(0.5, 1.0)",
-        "colsample_bytree": "uniform(0.5, 1.0)", "min_child_weight": "randint(1, 15)",
-        "gamma": "uniform(0, 0.5)", "reg_alpha": "loguniform(0.001, 5.0)",
-        "reg_lambda": "loguniform(0.1, 10.0)",
+        "n_estimators": "Integer(100, 800)", "max_depth": "Integer(3, 12)",
+        "learning_rate": "Real(0.005, 0.3, log-uniform)", "subsample": "Real(0.5, 1.0)",
+        "colsample_bytree": "Real(0.5, 1.0)", "min_child_weight": "Integer(1, 15)",
+        "gamma": "Real(0, 0.5)", "reg_alpha": "Real(0.001, 5.0, log-uniform)",
+        "reg_lambda": "Real(0.1, 10.0, log-uniform)",
     }
     for param in param_distributions:
         print(f"    {param:20s} ~ {dist_labels[param]}")
     print(f"  CV strategy:      TimeSeriesSplit (4 folds, temporal ordering)")
-    print(f"  Iterations:       {n_iter} random samples")
+    print(f"  Iterations:       {n_iter} Bayesian optimisation steps")
     print(f"  Total fits:       {n_iter * 4}")
     print(f"\n  Searching...", end="", flush=True)
 

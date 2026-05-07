@@ -44,9 +44,9 @@ North Atlantic Right Whales are among the most endangered large whales on Earth 
 
 **Core question:** *Given oceanographic conditions at a location on a given day, what is the probability that a NARW is present?*
 
-**Model performance (all models tuned via `RandomizedSearchCV` + `scipy.stats` distributions):**
-- **ROC-AUC: 0.9041** (Random Forest) / **0.8991** (XGBoost) — strong discriminative power
-- **Recall: ≥80%** at conservation-optimised thresholds (RF τ = 0.2018, XGBoost τ = 0.2229)
+**Model performance (all models tuned via `BayesSearchCV` + `skopt.space` dimensions):**
+- **ROC-AUC: 0.9064** (Random Forest) / **0.9042** (XGBoost) — strong discriminative power
+- **Recall: ≥80%** at conservation-optimised thresholds (RF τ = 0.1543, XGBoost τ = 0.1950)
 - Trained on 51,920 rows, tested on 12,981 rows (temporal split)
 
 > For the complete model comparison, hyperparameter tuning details, and threshold optimisation rationale, see the [ML Walkthrough](ML_Walkthrough.md).
@@ -256,15 +256,15 @@ The model trains on **10 features**. Here is what each one captures ecologically
 
 > For the full analysis of all 27 visualisations, statistical tests, and ecological interpretations, see the [EDA Walkthrough](EDA_Walkthrough.md).
 
-### Model Performance (Tuned via `RandomizedSearchCV` + `scipy.stats` Distributions)
+### Model Performance (Tuned via `BayesSearchCV` + `skopt.space` Dimensions)
 
-| Metric | Logistic Regression | XGBoost (τ=0.50) | XGBoost (τ=0.22) | Random Forest (τ=0.50) | Random Forest (τ=0.20) |
+| Metric | Logistic Regression | XGBoost (τ=0.50) | XGBoost (τ=0.20) | Random Forest (τ=0.50) | Random Forest (τ=0.15) |
 |---|---|---|---|---|---|
-| **ROC-AUC** | 0.8049 | 0.8991 | 0.8991 | **0.9041** | **0.9041** |
-| Recall | 0.8316 | 0.7011 | 0.8002 ✓ | 0.6410 | **0.8006** ✓ |
-| Precision | 0.3389 | 0.6285 | 0.4559 | **0.7603** | 0.4572 |
-| F1-Score | 0.4816 | 0.6628 | 0.5808 | **0.6956** | 0.5820 |
-| Accuracy | 0.6396 | 0.8564 | 0.7675 | **0.8871** | 0.7685 |
+| **ROC-AUC** | 0.8048 | 0.9042 | 0.9042 | **0.9064** | **0.9064** |
+| Recall | 0.8316 | 0.6778 | 0.8002 ✓ | 0.5756 | **0.8002** ✓ |
+| Precision | 0.3387 | 0.6744 | 0.5010 | **0.8478** | 0.4819 |
+| F1-Score | 0.4813 | 0.6761 | 0.6162 | **0.6857** | 0.6016 |
+| Accuracy | 0.6392 | 0.8693 | 0.7993 | **0.8938** | 0.7866 |
 
 <p align="center">
   <img src="images/roc_comparison.png" width="45%" />
@@ -295,8 +295,8 @@ WhaleGuard_RBC_LSI/
 │   ├── xgb_narw_sdm.json               # Trained XGBoost model
 │   ├── rf_narw_sdm.joblib              # Trained Random Forest model
 │   ├── lr_narw_sdm.joblib              # Trained LR baseline model
-│   ├── optimal_threshold.txt            # XGBoost: τ = 0.2229 for ≥80% recall
-│   └── rf_optimal_threshold.txt         # RF: τ = 0.2018 for ≥80% recall
+│   ├── optimal_threshold.txt            # XGBoost: τ = 0.1950 for ≥80% recall
+│   └── rf_optimal_threshold.txt         # RF: τ = 0.1543 for ≥80% recall
 ├── images/                               # 30 publication-ready plots
 ├── logs/                                 # Pipeline execution logs
 ├── pipeline.py                           # Phase 1-2: ETL + pseudo-absences
@@ -322,7 +322,7 @@ WhaleGuard_RBC_LSI/
 1. **November 2017 Presence Rate Anomaly:** 22 sightings in the Gulf of St. Lawrence have positive longitudes instead of negative. Acceptable as-is, but can be fixed in Phase 1 re-runs.
 2. **Chlorophyll NaNs (0.7%):** Gap-filled MODIS product doesn't cover extreme dates/locations. Handled natively by XGBoost; median-imputed for RF and LR.
 3. **Salinity NaNs (4.4%):** SMAP satellite has lower resolution and reduced coastal coverage. Handled natively by XGBoost; median-imputed for RF and LR.
-4. **Manual Test False Positive:** Florida Keys in August gives a 21.3% probability, barely exceeding the 22.3% XGBoost threshold. This is expected from a high-recall, cautious model.
+4. **Manual Test False Positive:** Florida Keys in August gives a 21.3% probability, which exceeds the 19.5% XGBoost threshold. This is expected from a high-recall, cautious model.
 
 ---
 

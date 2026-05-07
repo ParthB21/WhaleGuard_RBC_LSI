@@ -9,4 +9,5 @@ seaborn>=0.12
 cartopy
 scikit-learn>=1.2
 xgboost>=2.0
+scikit-optimize>=0.10
 nbformat>=5.0
