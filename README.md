@@ -45,8 +45,8 @@ North Atlantic Right Whales are among the most endangered large whales on Earth 
 **Core question:** *Given oceanographic conditions at a location on a given day, what is the probability that a NARW is present?*
 
 **Model performance (all models tuned via `BayesSearchCV` + `skopt.space` dimensions):**
-- **ROC-AUC: 0.9064** (Random Forest) / **0.9042** (XGBoost) — strong discriminative power
-- **Recall: ≥80%** at conservation-optimised thresholds (RF τ = 0.1543, XGBoost τ = 0.1950)
+- **ROC-AUC: 0.9064** (Random Forest) / **0.8986** (XGBoost) — strong discriminative power
+- **Recall: ≥80%** at conservation-optimised thresholds (RF τ = 0.1543, XGBoost τ = 0.1757)
 - Trained on 51,920 rows, tested on 12,981 rows (temporal split)
 - **Two-stage optimisation:** hyperparameter tuning maximises ROC-AUC (ranking quality), then threshold optimisation achieves ≥80% recall (conservation constraint)
 
@@ -259,13 +259,13 @@ The model trains on **10 features**. Here is what each one captures ecologically
 
 ### Model Performance (Tuned via `BayesSearchCV` + `skopt.space` Dimensions)
 
-| Metric | Logistic Regression | XGBoost (τ=0.50) | XGBoost (τ=0.20) | Random Forest (τ=0.50) | Random Forest (τ=0.15) |
+| Metric | Logistic Regression | XGBoost (τ=0.50) | XGBoost (τ=0.18) | Random Forest (τ=0.50) | Random Forest (τ=0.15) |
 |---|---|---|---|---|---|
-| **ROC-AUC** | 0.8048 | 0.9042 | 0.9042 | **0.9064** | **0.9064** |
-| Recall | 0.8316 | 0.6778 | 0.8002 ✓ | 0.5756 | **0.8002** ✓ |
-| Precision | 0.3387 | 0.6744 | 0.5010 | **0.8478** | 0.4819 |
-| F1-Score | 0.4813 | 0.6761 | 0.6162 | **0.6857** | 0.6016 |
-| Accuracy | 0.6392 | 0.8693 | 0.7993 | **0.8938** | 0.7866 |
+| **ROC-AUC** | 0.8048 | 0.8986 | 0.8986 | **0.9064** | **0.9064** |
+| Recall | 0.8316 | 0.6927 | 0.8002 ✓ | 0.5756 | **0.8002** ✓ |
+| Precision | 0.3387 | 0.6430 | 0.4505 | **0.8478** | 0.4819 |
+| F1-Score | 0.4814 | 0.6669 | 0.5765 | **0.6857** | 0.6016 |
+| Accuracy | 0.6393 | 0.8607 | 0.7633 | **0.8938** | 0.7866 |
 
 <p align="center">
   <img src="images/roc_comparison.png" width="45%" />
