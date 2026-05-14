@@ -73,16 +73,15 @@ MODELS_META = {
 
 MONTH_ABBRS = {i: calendar.month_abbr[i] for i in range(1, 13)}
 
-DATA_PATH = Path("data/processed/ML_Whale_Dataset_Final.csv")
+DATA_PATH = Path("data/processed/Gulf_St_Lawrence_Grid_Features.csv")
 
 # ---------------------------------------------------------------------------
 # Cached loaders
 # ---------------------------------------------------------------------------
 @st.cache_data(show_spinner="Loading dataset…")
 def load_data() -> pd.DataFrame:
-    df = pd.read_csv(DATA_PATH, parse_dates=["Date"])
-    df["Year"] = df["Date"].dt.year
-    df["Month"] = df["Date"].dt.month
+    # Grid CSV already has Year and Month columns; no Date column to parse.
+    df = pd.read_csv(DATA_PATH)
     df["Is_Thermal_Front"] = df["Is_Thermal_Front"].astype(int)
     return df
 
@@ -130,11 +129,10 @@ with st.sidebar:
     )
 
     st.subheader("Display Options")
-    show_sightings = st.toggle("Overlay actual sightings", value=False)
     heatmap_radius = st.slider(
         "Heatmap radius (KDE smoothing)",
-        min_value=10, max_value=60, value=30,
-        help="Larger values = smoother heatmap; smaller = sharper point clusters.",
+        min_value=10, max_value=60, value=20,
+        help="Larger values = smoother heatmap; smaller = sharper grid cells.",
     )
 
     meta = MODELS_META[model_name]
@@ -160,31 +158,18 @@ threshold = meta["threshold"]
 df_full["is_habitat"] = df_full["probability"] >= threshold
 
 # ---------------------------------------------------------------------------
-# Filter by year + month
+# Filter by year + month (grid CSV covers all 192 months — no fallback needed)
 # ---------------------------------------------------------------------------
 df_view = df_full[(df_full["Year"] == year) & (df_full["Month"] == month)]
-sparse_fallback = len(df_view) < 20
-
-if sparse_fallback:
-    st.warning(
-        f"Only **{len(df_view)}** survey points found for "
-        f"{MONTH_ABBRS[month]} {year}. "
-        f"Showing all years for **{MONTH_ABBRS[month]}** instead."
-    )
-    df_view = df_full[df_full["Month"] == month]
 
 # ---------------------------------------------------------------------------
 # Header + KPI cards
 # ---------------------------------------------------------------------------
 st.title("WhaleGuard — NARW Habitat Prediction")
-period_label = (
-    f"All years · {MONTH_ABBRS[month]}" if sparse_fallback
-    else f"{MONTH_ABBRS[month]} {year}"
-)
-st.caption(f"Showing **{period_label}** · Model: **{model_name}**")
+st.caption(f"Showing **{MONTH_ABBRS[month]} {year}** · Model: **{model_name}**")
 
 k1, k2, k3, k4 = st.columns(4)
-k1.metric("Survey points", f"{len(df_view):,}")
+k1.metric("Grid cells", f"{len(df_view):,}")
 k2.metric("Predicted habitat", f"{df_view['is_habitat'].mean():.1%}")
 k3.metric("Avg. whale probability", f"{df_view['probability'].mean():.3f}")
 k4.metric("Max probability", f"{df_view['probability'].max():.3f}")
@@ -200,7 +185,7 @@ fig.add_trace(
         lat=df_view["Lat"],
         lon=df_view["Lon"],
         z=df_view["probability"],
-        radius=heatmap_radius,
+        radius=heatmap_radius,   # 20 fills gaps in the 0.25° grid at zoom 5
         colorscale="YlOrRd",
         zmin=0,
         zmax=1,
@@ -217,25 +202,11 @@ fig.add_trace(
     )
 )
 
-# Optional: scatter layer for actual confirmed sightings
-if show_sightings:
-    sightings = df_view[df_view["Presence"] == 1]
-    fig.add_trace(
-        go.Scattermapbox(
-            lat=sightings["Lat"],
-            lon=sightings["Lon"],
-            mode="markers",
-            marker=dict(size=5, color="#1a6fb5", opacity=0.75),
-            name="Confirmed sightings",
-            hovertemplate="Lat: %{lat:.2f}<br>Lon: %{lon:.2f}<extra>Confirmed NARW sighting</extra>",
-        )
-    )
-
 fig.update_layout(
     mapbox=dict(
         style="carto-positron",
-        center=dict(lat=38, lon=-72),
-        zoom=4,
+        center=dict(lat=48, lon=-63),   # Gulf of St. Lawrence
+        zoom=5,
     ),
     legend=dict(
         orientation="h",
