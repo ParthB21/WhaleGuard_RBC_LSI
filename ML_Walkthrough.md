@@ -310,7 +310,7 @@ All hyperparameters were tuned using `BayesSearchCV` (40 iterations) with `TimeS
 
 ![ROC comparison — all three models on the same axes: Random Forest (AUC 0.9064) > XGBoost (0.8986) > Logistic Regression (0.8048). Operating points mark the conservation-optimised threshold for each model](images/roc_comparison.png)
 
-![Model comparison bar chart showing the progression from baseline to optimised model](images/model_comparison.png)
+![Model comparison bar chart — all five configurations across five metrics. Faded bars show default threshold (τ=0.50); solid bars show conservation-optimised threshold. The green dashed line marks the 80% recall conservation target](images/model_comparison.png)
 
 ### Key Observations
 
