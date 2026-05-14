@@ -308,7 +308,7 @@ All hyperparameters were tuned using `BayesSearchCV` (40 iterations) with `TimeS
 | **F1-Score** | 0.4814 | 0.6669 | 0.5765 | **0.6857** | 0.6016 |
 | **Accuracy** | 0.6393 | 0.8607 | 0.7633 | **0.8938** | 0.7866 |
 
-![ROC comparison — XGBoost dominates LR across all operating points](images/roc_comparison.png)
+![ROC comparison — all three models on the same axes: Random Forest (AUC 0.9064) > XGBoost (0.8986) > Logistic Regression (0.8048). Operating points mark the conservation-optimised threshold for each model](images/roc_comparison.png)
 
 ![Model comparison bar chart showing the progression from baseline to optimised model](images/model_comparison.png)
 
@@ -473,7 +473,7 @@ All model evaluation plots are saved to `images/` at 200 DPI:
 | `roc_curve.png` | XGBoost ROC curve with operating point |
 | `rf_roc_curve.png` | Random Forest ROC curve with operating point |
 | `lr_roc_curve.png` | Logistic regression ROC curve |
-| `roc_comparison.png` | Side-by-side ROC comparison (LR vs XGBoost) |
+| `roc_comparison.png` | Three-model ROC comparison (LR, XGBoost, Random Forest) with operating points |
 | `precision_recall_tradeoff.png` | XGBoost PR curve with recall target line |
 | `rf_precision_recall_tradeoff.png` | Random Forest PR curve with recall target line |
 | `feature_importance.png` | XGBoost gain-based feature ranking |
