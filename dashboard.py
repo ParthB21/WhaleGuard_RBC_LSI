@@ -120,7 +120,7 @@ with st.sidebar:
     )
 
     st.subheader("Date Filter")
-    year = st.slider("Year", min_value=2002, max_value=2018, value=2012)
+    year = st.slider("Year", min_value=2002, max_value=2026, value=2024)
     month = st.select_slider(
         "Month",
         options=list(range(1, 13)),
