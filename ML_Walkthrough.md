@@ -51,8 +51,8 @@ Unlike random train/test splits, a **temporal split** places all data before a c
 
 | Set | Rows | Date Range | Presence | Absence |
 |---|---|---|---|---|
-| **Train** | 51,920 | 2002-01-07 → 2015-07-09 | ~10,200 | ~41,720 |
-| **Test** | 12,981 | 2015-07-10 → 2018-01-31 | ~2,780 | ~10,200 |
+| **Train** | 51,920 | 2002-01-07 → 2015-07-09 | 10,384 | 41,536 |
+| **Test** | 12,981 | 2015-07-10 → 2018-01-31 | 2,613 | 10,368 |
 
 **Split date:** 2015-07-10 (80th percentile chronologically)
 

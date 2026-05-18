@@ -497,8 +497,9 @@ def main():
     ax.set_yticks(range(len(sorted_idx)))
     ax.set_yticklabels([feature_names[i] for i in sorted_idx], fontsize=12)
     ax.set_xlabel("Feature Importance (Mean Decrease in Impurity ± σ)", fontsize=13)
+    n_trees = rf_model.n_estimators
     ax.set_title("Random Forest Feature Importance — NARW Habitat Model\n"
-                 "Error bars show inter-tree variability (500 trees)",
+                 f"Error bars show inter-tree variability ({n_trees} trees)",
                  fontsize=14, pad=15)
     ax.grid(axis="x", alpha=0.2)
 
