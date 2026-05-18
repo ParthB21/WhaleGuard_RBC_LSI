@@ -182,7 +182,7 @@ with st.sidebar:
     )
 
     st.subheader("Date Filter")
-    year = st.slider("Year", min_value=2002, max_value=2018, value=2012)
+    year = st.slider("Year", min_value=2002, max_value=2026, value=2024)
     month = st.select_slider(
         "Month",
         options=list(range(1, 13)),
@@ -248,10 +248,21 @@ st.title("WhaleGuard — NARW Habitat Prediction")
 st.caption(f"Showing **{MONTH_ABBRS[month]} {year}** · Model: **{model_name}**")
 
 k1, k2, k3, k4 = st.columns(4)
-k1.metric("Grid cells", f"{len(df_view):,}")
-k2.metric("Predicted habitat", f"{df_view['is_habitat'].mean():.1%}")
-k3.metric("Avg. whale probability", f"{df_view['probability'].mean():.3f}")
-k4.metric("Max probability", f"{df_view['probability'].max():.3f}")
+k1.metric("Grid cells", f"{len(df_view):,}",
+          help="Number of 0.25° ocean grid cells covering the Gulf of St. Lawrence for the selected month and year.")
+k2.metric("Predicted habitat", f"{df_view['is_habitat'].mean():.1%}",
+          help=(
+              f"Fraction of grid cells where the model's whale-presence probability "
+              f"meets or exceeds the conservation threshold τ = {threshold:.4f}. "
+              f"A cell above τ is classified as 'predicted habitat' — meaning the model "
+              f"considers it likely enough to contain a NARW that a speed restriction would "
+              f"be warranted. The threshold is set to achieve ≥ 80 % recall, so the model "
+              f"deliberately flags more cells than strictly necessary to avoid missing real whales."
+          ))
+k3.metric("Avg. whale probability", f"{df_view['probability'].mean():.3f}",
+          help="Mean predicted probability of NARW presence across all grid cells this month. Ranges 0–1.")
+k4.metric("Max probability", f"{df_view['probability'].max():.3f}",
+          help="Highest single-cell predicted probability this month — the model's most confident prediction of whale presence.")
 
 # ---------------------------------------------------------------------------
 # Map
@@ -408,22 +419,29 @@ with col_left:
             st.image(str(img_path), use_container_width=True)
         else:
             st.info("Image not found — run training scripts to generate plots.")
+        st.caption(
+            "**Gain** measures the average reduction in prediction error each time a feature "
+            "is used to split a tree node. A high-gain feature (e.g. Dist_to_Shore_km) "
+            "consistently produces accurate, well-separated branches; a low-gain feature "
+            "adds little information when split on. Unlike frequency-based importance, "
+            "gain rewards quality of splits, not just how often a feature is used."
+        )
 
 with col_right:
     with st.expander("About this model"):
         st.markdown(meta["description"])
+        st.divider()
         st.markdown(
             f"""
-| Metric | Value |
-|---|---|
-| ROC-AUC | {meta['auc']} |
-| Recall @ τ | {meta['recall']} |
-| Precision @ τ | {meta['precision']} |
-| F1-Score | {meta['f1']} |
-| Threshold (τ) | {meta['threshold']} |
+| Metric | Value | What it means |
+|---|---|---|
+| **ROC-AUC** | {meta['auc']} | How well the model ranks whale locations above background — 1.0 is perfect, 0.5 is random. |
+| **Recall @ τ** | {meta['recall']} | Of all real whale locations, the fraction correctly flagged. Primary metric — a missed whale risks a ship strike. |
+| **Precision @ τ** | {meta['precision']} | Of all flagged locations, the fraction that actually had a whale. Lower precision = more false alarms, an acceptable trade-off. |
+| **F1-Score** | {meta['f1']} | Harmonic mean of Recall and Precision. |
+| **Threshold (τ)** | {meta['threshold']} | Probability cut-off for "habitat" decisions, tuned below 0.5 to guarantee ≥ 80 % recall. |
 """
         )
         st.caption(
-            "Threshold optimised for ≥ 80 % recall (endangered species precautionary principle). "
-            "False negatives (missed whales) carry far higher cost than false positives (unneeded speed restrictions)."
+            "Evaluated on a temporal hold-out (2015–2018) — data the model never saw during training."
         )

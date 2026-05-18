@@ -4,7 +4,7 @@
 ==========================================================================
  Generates a regular 0.25° spatial grid over the Gulf of St. Lawrence
  (45°N–51°N, -71°W to -56°W) and extracts environmental features for
- every ocean grid cell across 2002–2018.
+ every ocean grid cell across 2002–2026.
 
  Architecture mirrors the original ETL pipeline:
    • Slab-based OPeNDAP fetches (pipeline.py architecture)
@@ -42,6 +42,10 @@ from scipy.spatial import cKDTree
 warnings.filterwarnings("ignore", message=".*SerializationWarning.*")
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+# Force UTF-8 on Windows consoles so box-drawing characters render correctly
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 # =========================================================================
 #  Configuration
@@ -53,7 +57,7 @@ LON_MIN, LON_MAX = -71.0, -56.0    # °W
 GRID_RES         = 0.25            # degrees per cell
 
 # -- Temporal scope -------------------------------------------------------
-YEAR_START, YEAR_END = 2002, 2018
+YEAR_START, YEAR_END = 2002, 2026
 
 # -- Paths ----------------------------------------------------------------
 OUTPUT_CSV     = Path("data/processed/Gulf_St_Lawrence_Grid_Features.csv")
@@ -63,9 +67,20 @@ LOG_DIR        = Path("logs")
 # -- ERDDAP OPeNDAP endpoints (same base as pipeline.py) ------------------
 ERDDAP_BASE       = "https://coastwatch.pfeg.noaa.gov/erddap/griddap"
 SST_URL           = f"{ERDDAP_BASE}/jplMURSST41"
-CHLOROPHYLL_URL   = f"{ERDDAP_BASE}/erdMH1chlamday"
-SALINITY_URL      = f"{ERDDAP_BASE}/erdSoda331oceanmday_LonPM180"
 ETOPO_URL         = f"{ERDDAP_BASE}/etopo180"   # pm180 convention (-180 to 180)
+
+# Chlorophyll: MODIS Aqua (Jan 2003 – May 2022, archived)
+CHLOROPHYLL_URL        = f"{ERDDAP_BASE}/erdMH1chlamday"
+# Chlorophyll: VIIRS Suomi-NPP (Jan 2012 – Mar 2026, active) — replaces MODIS from 2022 onward
+VIIRS_CHL_URL          = f"{ERDDAP_BASE}/nesdisVHNSQchlaMonthly"
+VIIRS_CHL_SWITCH_YEAR  = 2022   # use VIIRS for year >= this value
+
+# Salinity: SODA 3.3.1 reanalysis (Jan 1980 – Dec 2015, archived)
+SALINITY_URL           = f"{ERDDAP_BASE}/erdSoda331oceanmday_LonPM180"
+# Salinity: SMAP JPL V5 daily (Apr 2015 – present, active) — replaces SODA from 2016 onward
+SMAP_ERDDAP_BASE       = "https://coastwatch.noaa.gov/erddap/griddap"
+SMAP_SAL_URL           = f"{SMAP_ERDDAP_BASE}/noaacwSMAPsssDaily"
+SMAP_SAL_SWITCH_YEAR   = 2016   # use SMAP for year >= this value
 
 # -- Physics & algorithm constants ----------------------------------------
 SLAB_BUFFER_DEG   = 1.0            # pad around bounding box for slab downloads
@@ -432,14 +447,20 @@ def extract_one_month(
     month: int,
     ocean_lats: np.ndarray,
     ocean_lons: np.ndarray,
-    ds_sst,    # xr.Dataset or None
-    ds_chl,    # xr.Dataset or None
-    ds_sal,    # xr.Dataset or None
+    ds_sst,         # MUR SST — active through 2026
+    ds_chl_modis,   # MODIS Aqua chlorophyll — used for year <= 2021
+    ds_chl_viirs,   # VIIRS chlorophyll      — used for year >= 2022
+    ds_sal_soda,    # SODA 3.3.1 salinity    — used for year <= 2015
+    ds_sal_smap,    # SMAP salinity          — used for year >= 2016
 ) -> dict:
     """
     Fetch SST, Chlorophyll, and Salinity for a single year+month,
     compute SST_Gradient and Is_Thermal_Front, and return a dict of arrays.
     All arrays have length == len(ocean_lats).
+
+    Dataset switching by year:
+      Chlorophyll: MODIS (year <= 2021) → VIIRS nesdisVHNSQchlaMonthly (year >= 2022)
+      Salinity:    SODA  (year <= 2015) → SMAP  noaacwSMAPsssDaily      (year >= 2016)
     """
     label  = f"{year}-{month:02d}"
     n_pts  = len(ocean_lats)
@@ -456,7 +477,7 @@ def extract_one_month(
 
     # ── SST + Gradient + Thermal Front ────────────────────────────────────
     if ds_sst is not None:
-        log.info(f"  [{label}] Fetching SST…")
+        log.info(f"  [{label}] Fetching SST (MUR)…")
         sst_slab = _fetch_slab_with_retry(
             ds_sst["analysed_sst"],
             slab_lat_min, slab_lat_max, slab_lon_min, slab_lon_max,
@@ -466,7 +487,7 @@ def extract_one_month(
         sst_slab = None
 
     if sst_slab is not None and sst_slab.size >= 4:
-        sst_vals      = _extract_at_points(sst_slab, ocean_lats, ocean_lons, use_nearest=True)
+        sst_vals       = _extract_at_points(sst_slab, ocean_lats, ocean_lons, use_nearest=True)
         gradient_field = _compute_gradient_magnitude(sst_slab)
         gradient_vals  = _extract_at_points(gradient_field, ocean_lats, ocean_lons, use_nearest=True)
         front_vals     = (gradient_vals > FRONT_THRESHOLD).astype(int)
@@ -480,13 +501,24 @@ def extract_one_month(
         gradient_vals = np.full(n_pts, np.nan)
         front_vals    = np.zeros(n_pts, dtype=int)
 
-    # ── Chlorophyll ───────────────────────────────────────────────────────
-    if ds_chl is not None:
-        log.info(f"  [{label}] Fetching Chlorophyll…")
+    # ── Chlorophyll — year-conditional dataset selection ──────────────────
+    if year >= VIIRS_CHL_SWITCH_YEAR:
+        # VIIRS Suomi-NPP: variable is "chlor_a" (no depth dimension)
+        chl_ds  = ds_chl_viirs
+        chl_var = "chlor_a"
+        chl_src = "VIIRS"
+    else:
+        # MODIS Aqua: variable is "chlorophyll"
+        chl_ds  = ds_chl_modis
+        chl_var = "chlorophyll"
+        chl_src = "MODIS"
+
+    if chl_ds is not None:
+        log.info(f"  [{label}] Fetching Chlorophyll ({chl_src})…")
         chl_slab = _fetch_slab_with_retry(
-            ds_chl["chlorophyll"],
+            chl_ds[chl_var],
             slab_lat_min, slab_lat_max, slab_lon_min, slab_lon_max,
-            time_key=date_key, label=f"{label}/Chl",
+            time_key=date_key, label=f"{label}/Chl-{chl_src}",
         )
     else:
         chl_slab = None
@@ -494,28 +526,35 @@ def extract_one_month(
     if chl_slab is not None:
         chl_vals = _extract_at_points(chl_slab, ocean_lats, ocean_lons, use_nearest=False)
         n_chl_v  = int(np.count_nonzero(~np.isnan(chl_vals)))
-        log.debug(f"    [{label}] Chl: {n_chl_v}/{n_pts} valid")
+        log.debug(f"    [{label}] Chl ({chl_src}): {n_chl_v}/{n_pts} valid")
     else:
-        if ds_chl is not None:
-            log.warning(f"  [{label}] Chlorophyll slab unavailable — filling NaN")
+        if chl_ds is not None:
+            log.warning(f"  [{label}] Chlorophyll ({chl_src}) slab unavailable — filling NaN")
         chl_vals = np.full(n_pts, np.nan)
 
-    # ── Salinity ──────────────────────────────────────────────────────────
-    if ds_sal is not None:
-        log.info(f"  [{label}] Fetching Salinity…")
-        try:
-            sal_da = ds_sal["salt"].isel(depth=0)
-        except Exception as exc:
-            log.warning(f"  [{label}] Could not select Salinity surface layer: {exc}")
-            sal_da = None
+    # ── Salinity — year-conditional dataset selection ─────────────────────
+    if year >= SMAP_SAL_SWITCH_YEAR:
+        # SMAP JPL V5 daily SSS: variable "sss", no depth dimension
+        sal_ds  = ds_sal_smap
+        sal_src = "SMAP"
+        sal_da_getter = lambda ds: ds["sss"].isel(altitude=0)  # squeeze single-element altitude dim
+    else:
+        # SODA 3.3.1: variable "salt", surface via isel(depth=0)
+        sal_ds  = ds_sal_soda
+        sal_src = "SODA"
+        sal_da_getter = lambda ds: ds["salt"].isel(depth=0)
 
-        if sal_da is not None:
+    if sal_ds is not None:
+        log.info(f"  [{label}] Fetching Salinity ({sal_src})…")
+        try:
+            sal_da   = sal_da_getter(sal_ds)
             sal_slab = _fetch_slab_with_retry(
                 sal_da,
                 slab_lat_min, slab_lat_max, slab_lon_min, slab_lon_max,
-                time_key=date_key, label=f"{label}/Sal",
+                time_key=date_key, label=f"{label}/Sal-{sal_src}",
             )
-        else:
+        except Exception as exc:
+            log.warning(f"  [{label}] Salinity ({sal_src}) layer error: {exc} — filling NaN")
             sal_slab = None
     else:
         sal_slab = None
@@ -523,14 +562,17 @@ def extract_one_month(
     if sal_slab is not None:
         sal_vals = _extract_at_points(sal_slab, ocean_lats, ocean_lons, use_nearest=False)
         n_sal_v  = int(np.count_nonzero(~np.isnan(sal_vals)))
-        log.debug(f"    [{label}] Sal: {n_sal_v}/{n_pts} valid")
+        log.debug(f"    [{label}] Sal ({sal_src}): {n_sal_v}/{n_pts} valid")
     else:
-        if ds_sal is not None:
-            log.warning(f"  [{label}] Salinity slab unavailable — filling NaN")
+        if sal_ds is not None:
+            log.warning(f"  [{label}] Salinity ({sal_src}) slab unavailable — filling NaN")
         sal_vals = np.full(n_pts, np.nan)
 
     elapsed = time.time() - t0
-    log.debug(f"    [{label}] Month extraction complete in {elapsed:.1f}s")
+    log.debug(
+        f"    [{label}] Done in {elapsed:.1f}s | "
+        f"Sources: SST=MUR Chl={chl_src} Sal={sal_src}"
+    )
 
     return {
         "SST":              sst_vals,
@@ -615,36 +657,51 @@ def main() -> None:
 
     # ── Open remote datasets once ──────────────────────────────────────────
     log.info("─── Connecting to ERDDAP Datasets ───────────────────────────────")
-    log.info(f"  SST:         {SST_URL}")
-    log.info(f"  Chlorophyll: {CHLOROPHYLL_URL}")
-    log.info(f"  Salinity:    {SALINITY_URL}\n")
+    log.info(f"  SST:            {SST_URL}")
+    log.info(f"  Chl (MODIS):    {CHLOROPHYLL_URL}  [≤ {VIIRS_CHL_SWITCH_YEAR - 1}]")
+    log.info(f"  Chl (VIIRS):    {VIIRS_CHL_URL}  [≥ {VIIRS_CHL_SWITCH_YEAR}]")
+    log.info(f"  Sal (SODA):     {SALINITY_URL}  [≤ {SMAP_SAL_SWITCH_YEAR - 1}]")
+    log.info(f"  Sal (SMAP):     {SMAP_SAL_URL}  [≥ {SMAP_SAL_SWITCH_YEAR}]\n")
 
     try:
         ds_sst = xr.open_dataset(SST_URL, engine="netcdf4")
-        log.info(f"  ✓ SST connected         dims: {dict(ds_sst.dims)}")
+        log.info(f"  ✓ SST (MUR) connected         dims: {dict(ds_sst.dims)}")
     except Exception as exc:
         log.error(f"  ✗ SST connection failed: {exc}")
         raise
 
     try:
-        ds_chl = xr.open_dataset(CHLOROPHYLL_URL, engine="netcdf4")
-        log.info(f"  ✓ Chlorophyll connected  dims: {dict(ds_chl.dims)}")
+        ds_chl_modis = xr.open_dataset(CHLOROPHYLL_URL, engine="netcdf4")
+        log.info(f"  ✓ Chl MODIS connected          dims: {dict(ds_chl_modis.dims)}")
     except Exception as exc:
-        log.warning(f"  ✗ Chlorophyll connection failed: {exc} — will be NaN")
-        ds_chl = None
+        log.warning(f"  ✗ Chl MODIS connection failed: {exc} — years ≤ {VIIRS_CHL_SWITCH_YEAR - 1} will be NaN")
+        ds_chl_modis = None
 
     try:
-        ds_sal = xr.open_dataset(SALINITY_URL, engine="netcdf4")
-        log.info(f"  ✓ Salinity connected     dims: {dict(ds_sal.dims)}")
-        log.info(
-            "    Note: Salinity coverage ends 2015; "
-            "years 2016–2018 will be NaN (handled by model imputer)"
-        )
+        ds_chl_viirs = xr.open_dataset(VIIRS_CHL_URL, engine="netcdf4")
+        log.info(f"  ✓ Chl VIIRS connected          dims: {dict(ds_chl_viirs.dims)}")
     except Exception as exc:
-        log.warning(f"  ✗ Salinity connection failed: {exc} — will be NaN")
-        ds_sal = None
+        log.warning(f"  ✗ Chl VIIRS connection failed: {exc} — years ≥ {VIIRS_CHL_SWITCH_YEAR} will be NaN")
+        ds_chl_viirs = None
+
+    try:
+        ds_sal_soda = xr.open_dataset(SALINITY_URL, engine="netcdf4")
+        log.info(f"  ✓ Sal SODA connected           dims: {dict(ds_sal_soda.dims)}")
+    except Exception as exc:
+        log.warning(f"  ✗ Sal SODA connection failed: {exc} — years ≤ {SMAP_SAL_SWITCH_YEAR - 1} will be NaN")
+        ds_sal_soda = None
+
+    try:
+        ds_sal_smap = xr.open_dataset(SMAP_SAL_URL, engine="netcdf4")
+        log.info(f"  ✓ Sal SMAP connected           dims: {dict(ds_sal_smap.dims)}")
+    except Exception as exc:
+        log.warning(f"  ✗ Sal SMAP connection failed: {exc} — years ≥ {SMAP_SAL_SWITCH_YEAR} will be NaN")
+        ds_sal_smap = None
 
     log.info("")
+    log.info(f"  Dataset transitions:")
+    log.info(f"    Chlorophyll: MODIS (year ≤ {VIIRS_CHL_SWITCH_YEAR - 1}) → VIIRS (year ≥ {VIIRS_CHL_SWITCH_YEAR})")
+    log.info(f"    Salinity:    SODA  (year ≤ {SMAP_SAL_SWITCH_YEAR - 1}) → SMAP  (year ≥ {SMAP_SAL_SWITCH_YEAR})\n")
 
     # ── Stage 3: Temporal loop ─────────────────────────────────────────────
     log.info("╔══════════════════════════════════════════════════════════════╗")
@@ -677,7 +734,7 @@ def main() -> None:
 
             dynamic = extract_one_month(
                 year, month, ocean_lats, ocean_lons,
-                ds_sst, ds_chl, ds_sal,
+                ds_sst, ds_chl_modis, ds_chl_viirs, ds_sal_soda, ds_sal_smap,
             )
 
             # Build one row dict per ocean grid point
@@ -731,10 +788,9 @@ def main() -> None:
 
     # ── Close remote datasets ──────────────────────────────────────────────
     ds_sst.close()
-    if ds_chl is not None:
-        ds_chl.close()
-    if ds_sal is not None:
-        ds_sal.close()
+    for _ds in (ds_chl_modis, ds_chl_viirs, ds_sal_soda, ds_sal_smap):
+        if _ds is not None:
+            _ds.close()
 
     # ── Assemble final output CSV ──────────────────────────────────────────
     log.info("─── Assembling Final CSV ────────────────────────────────────────")
