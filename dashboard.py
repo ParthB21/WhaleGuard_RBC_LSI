@@ -140,11 +140,7 @@ with st.sidebar:
     st.subheader("Model Performance")
     c1, c2 = st.columns(2)
     c1.metric("ROC-AUC", meta["auc"])
-    c2.metric("F1-Score", meta["f1"])
-    c1.metric("Recall @ τ", meta["recall"])
-    c2.metric("Precision @ τ", meta["precision"])
-    st.caption(f"Conservation threshold τ = **{meta['threshold']:.4f}**")
-
+    
 
 # ---------------------------------------------------------------------------
 # Load data + predictions
