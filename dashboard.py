@@ -1,4 +1,6 @@
 import calendar
+import heapq
+import math
 from pathlib import Path
 
 import joblib
@@ -76,6 +78,173 @@ MONTH_ABBRS = {i: calendar.month_abbr[i] for i in range(1, 13)}
 DATA_PATH = Path("data/processed/Gulf_St_Lawrence_Grid_Features.csv")
 
 # ---------------------------------------------------------------------------
+# Ports & Gateways — all coordinates snap to nearest ocean grid cell at runtime
+# ---------------------------------------------------------------------------
+PORTS = {
+    # Quebec North Shore
+    "Sept-Îles":        {"lat": 50.20, "lon": -66.38, "group": "Quebec North Shore"},
+    "Port-Cartier":     {"lat": 50.03, "lon": -66.82, "group": "Quebec North Shore"},
+    "Baie-Comeau":      {"lat": 49.22, "lon": -68.15, "group": "Quebec North Shore"},
+    "Matane":           {"lat": 48.85, "lon": -67.57, "group": "Quebec North Shore"},
+    # Quebec South Shore & Gaspé
+    "Rimouski":         {"lat": 48.48, "lon": -68.52, "group": "Quebec South Shore"},
+    "Gaspé":            {"lat": 48.83, "lon": -64.44, "group": "Quebec South Shore"},
+    "Chandler":         {"lat": 48.35, "lon": -64.68, "group": "Quebec South Shore"},
+    # New Brunswick
+    "Belledune":        {"lat": 47.91, "lon": -65.83, "group": "New Brunswick"},
+    "Dalhousie":        {"lat": 48.07, "lon": -66.37, "group": "New Brunswick"},
+    # Prince Edward Island
+    "Charlottetown":    {"lat": 46.23, "lon": -63.13, "group": "Prince Edward Island"},
+    "Summerside":       {"lat": 46.39, "lon": -63.79, "group": "Prince Edward Island"},
+    # Nova Scotia
+    "Sydney":           {"lat": 46.14, "lon": -60.19, "group": "Nova Scotia"},
+    "Port Hawkesbury":  {"lat": 45.62, "lon": -61.35, "group": "Nova Scotia"},
+    # Newfoundland
+    "Corner Brook":     {"lat": 48.95, "lon": -57.95, "group": "Newfoundland"},
+    "Port aux Basques": {"lat": 47.57, "lon": -59.14, "group": "Newfoundland"},
+}
+
+GATEWAYS = {
+    "→ Montreal / Upstream":     {"lat": 47.25, "lon": -70.50, "group": "Exit Points"},
+    "→ Atlantic (Cabot Strait)": {"lat": 47.00, "lon": -59.75, "group": "Exit Points"},
+    "→ Atlantic (Belle Isle)":   {"lat": 51.00, "lon": -57.25, "group": "Exit Points"},
+}
+
+ALL_LOCATIONS = {**PORTS, **GATEWAYS}
+
+# ---------------------------------------------------------------------------
+# Routing utilities
+# ---------------------------------------------------------------------------
+def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in km between two points."""
+    R = 6371.0
+    φ1, φ2 = math.radians(lat1), math.radians(lat2)
+    Δφ = math.radians(lat2 - lat1)
+    Δλ = math.radians(lon2 - lon1)
+    a = math.sin(Δφ / 2) ** 2 + math.cos(φ1) * math.cos(φ2) * math.sin(Δλ / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def snap_to_grid(lat: float, lon: float, ocean_cells: set) -> tuple:
+    """Find the nearest ocean grid cell to a given coordinate."""
+    best, best_d = None, float("inf")
+    for cell in ocean_cells:
+        d = (cell[0] - lat) ** 2 + (cell[1] - lon) ** 2
+        if d < best_d:
+            best_d = d
+            best = cell
+    return best
+
+
+def build_ocean_graph(ocean_cells: set) -> dict:
+    """Build adjacency dict — each ocean cell connects to its 8 ocean neighbours.
+
+    Also checks extended (0.5°) diagonal jumps to bridge the St. Lawrence River
+    narrows where the 0.25° grid has a gap (e.g. between 47.25°N and 47.75°N).
+    """
+    offsets_primary = [
+        (-0.25, 0), (0.25, 0), (0, -0.25), (0, 0.25),          # N S W E
+        (-0.25, -0.25), (-0.25, 0.25), (0.25, -0.25), (0.25, 0.25),  # diagonals
+    ]
+    offsets_bridge = [
+        (-0.50, 0.25), (-0.50, 0.50), (-0.25, 0.50),           # far NE quadrant
+        (0.50, 0.25), (0.50, 0.50), (0.25, 0.50),               # far SE quadrant
+        (-0.50, -0.25), (-0.50, -0.50), (-0.25, -0.50),         # far NW quadrant
+        (0.50, -0.25), (0.50, -0.50), (0.25, -0.50),            # far SW quadrant
+    ]
+    graph = {}
+    for cell in ocean_cells:
+        neighbours = []
+        for dlat, dlon in offsets_primary:
+            nb = (round(cell[0] + dlat, 2), round(cell[1] + dlon, 2))
+            if nb in ocean_cells:
+                neighbours.append(nb)
+        # Only use bridge offsets if the cell has few primary neighbours
+        # (i.e. it's at a channel bottleneck)
+        if len(neighbours) <= 2:
+            for dlat, dlon in offsets_bridge:
+                nb = (round(cell[0] + dlat, 2), round(cell[1] + dlon, 2))
+                if nb in ocean_cells and nb not in neighbours:
+                    neighbours.append(nb)
+        graph[cell] = neighbours
+    return graph
+
+
+@st.cache_data(show_spinner="Computing route…")
+def find_route(
+    ocean_cells_tuple: tuple,
+    prob_dict_keys: tuple,
+    prob_dict_vals: tuple,
+    start: tuple,
+    end: tuple,
+    whale_weight: float = 0.0,
+) -> list:
+    """
+    A* pathfinding over the ocean grid.
+
+    whale_weight = 0   → shortest path (standard route)
+    whale_weight = 500 → heavily penalises whale-probable cells (eco-route)
+
+    Returns list of (lat, lon) waypoints, or empty list if no path.
+    """
+    ocean_cells = set(ocean_cells_tuple)
+    prob_dict = dict(zip(prob_dict_keys, prob_dict_vals))
+    graph = build_ocean_graph(ocean_cells)
+
+    if start not in graph or end not in graph:
+        return []
+
+    # Priority queue: (f_score, counter, node)
+    counter = 0
+    open_set = [(0, counter, start)]
+    came_from = {}
+    g_score = {start: 0}
+
+    while open_set:
+        _, _, current = heapq.heappop(open_set)
+
+        if current == end:
+            # Reconstruct path
+            path = [current]
+            while current in came_from:
+                current = came_from[current]
+                path.append(current)
+            return path[::-1]
+
+        for nb in graph.get(current, []):
+            dist = haversine(current[0], current[1], nb[0], nb[1])
+            whale_cost = whale_weight * prob_dict.get(nb, 0)
+            tentative = g_score[current] + dist + whale_cost
+
+            if tentative < g_score.get(nb, float("inf")):
+                came_from[nb] = current
+                g_score[nb] = tentative
+                h = haversine(nb[0], nb[1], end[0], end[1])
+                f = tentative + h
+                counter += 1
+                heapq.heappush(open_set, (f, counter, nb))
+
+    return []  # No path found
+
+
+def route_metrics(path: list, prob_dict: dict) -> dict:
+    """Compute distance, time, and risk metrics for a route."""
+    if len(path) < 2:
+        return {"distance_km": 0, "time_hrs": 0, "avg_risk": 0, "max_risk": 0}
+    total_dist = sum(
+        haversine(path[i][0], path[i][1], path[i + 1][0], path[i + 1][1])
+        for i in range(len(path) - 1)
+    )
+    risks = [prob_dict.get(cell, 0) for cell in path]
+    return {
+        "distance_km": total_dist,
+        "time_hrs": total_dist / 18.52,  # 10 knots = 18.52 km/h
+        "avg_risk": np.mean(risks) if risks else 0,
+        "max_risk": max(risks) if risks else 0,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Cached loaders
 # ---------------------------------------------------------------------------
 @st.cache_data(show_spinner="Loading dataset…")
@@ -141,6 +310,21 @@ with st.sidebar:
     c1, c2 = st.columns(2)
     c1.metric("ROC-AUC", meta["auc"])
     
+
+    # -----------------------------------------------------------------------
+    # Route Planner controls
+    # -----------------------------------------------------------------------
+    st.divider()
+    st.subheader("🚢 Route Planner")
+
+    location_names = list(ALL_LOCATIONS.keys())
+    origin_name = st.selectbox("Origin", location_names, index=0)
+    # Filter destination to exclude origin
+    dest_options = [n for n in location_names if n != origin_name]
+    dest_name = st.selectbox("Destination", dest_options, index=min(11, len(dest_options) - 1))
+    show_eco = st.toggle("Show Eco-Route", value=True,
+                         help="The eco-route avoids high whale-probability cells, potentially adding distance but reducing collision risk.")
+
 
 # ---------------------------------------------------------------------------
 # Load data + predictions
@@ -209,6 +393,62 @@ fig.add_trace(
     )
 )
 
+# ---------------------------------------------------------------------------
+# Route computation
+# ---------------------------------------------------------------------------
+ocean_cells = set(zip(df_view["Lat"], df_view["Lon"]))
+prob_dict = dict(zip(zip(df_view["Lat"], df_view["Lon"]), df_view["probability"]))
+
+origin_info = ALL_LOCATIONS[origin_name]
+dest_info = ALL_LOCATIONS[dest_name]
+start_cell = snap_to_grid(origin_info["lat"], origin_info["lon"], ocean_cells)
+end_cell = snap_to_grid(dest_info["lat"], dest_info["lon"], ocean_cells)
+
+# Hashable args for caching
+oc_tuple = tuple(sorted(ocean_cells))
+pk = tuple(prob_dict.keys())
+pv = tuple(prob_dict.values())
+
+std_route = find_route(oc_tuple, pk, pv, start_cell, end_cell, whale_weight=0.0)
+eco_route = find_route(oc_tuple, pk, pv, start_cell, end_cell, whale_weight=500.0) if show_eco else []
+
+# ---------------------------------------------------------------------------
+# Add route lines to map
+# ---------------------------------------------------------------------------
+if std_route:
+    fig.add_trace(go.Scattermapbox(
+        lat=[p[0] for p in std_route],
+        lon=[p[1] for p in std_route],
+        mode="lines",
+        line=dict(width=3, color="#2563EB"),
+        name="Standard Route",
+        hoverinfo="skip",
+    ))
+
+if eco_route and show_eco:
+    fig.add_trace(go.Scattermapbox(
+        lat=[p[0] for p in eco_route],
+        lon=[p[1] for p in eco_route],
+        mode="lines",
+        line=dict(width=3.5, color="#10B981"),
+        name="Eco-Route",
+        hoverinfo="skip",
+    ))
+
+# Port markers
+if start_cell and end_cell:
+    fig.add_trace(go.Scattermapbox(
+        lat=[start_cell[0], end_cell[0]],
+        lon=[start_cell[1], end_cell[1]],
+        mode="markers+text",
+        marker=dict(size=12, color=["#2563EB", "#DC2626"], symbol="circle"),
+        text=[origin_name, dest_name],
+        textposition="top center",
+        textfont=dict(size=11, color="#1E293B"),
+        name="Ports",
+        hovertemplate="%{text}<extra></extra>",
+    ))
+
 fig.update_layout(
     mapbox=dict(
         style="carto-positron",
@@ -228,6 +468,53 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
+
+# ---------------------------------------------------------------------------
+# Route comparison metrics
+# ---------------------------------------------------------------------------
+if std_route:
+    std_m = route_metrics(std_route, prob_dict)
+
+    if eco_route and show_eco:
+        eco_m = route_metrics(eco_route, prob_dict)
+        risk_reduction = (
+            (1 - eco_m["avg_risk"] / std_m["avg_risk"]) * 100
+            if std_m["avg_risk"] > 0 else 0
+        )
+
+        st.subheader("🚢 Route Comparison")
+        rc1, rc2, rc3 = st.columns(3)
+        with rc1:
+            st.markdown("**Standard Route**")
+            st.metric("Distance", f"{std_m['distance_km']:.0f} km")
+            st.metric("Travel Time", f"{std_m['time_hrs']:.1f} hrs")
+            st.metric("Avg. Whale Risk", f"{std_m['avg_risk']:.3f}")
+        with rc2:
+            st.markdown("**Eco-Route**")
+            st.metric("Distance", f"{eco_m['distance_km']:.0f} km",
+                       delta=f"+{eco_m['distance_km'] - std_m['distance_km']:.0f} km",
+                       delta_color="off")
+            st.metric("Travel Time", f"{eco_m['time_hrs']:.1f} hrs",
+                       delta=f"+{eco_m['time_hrs'] - std_m['time_hrs']:.1f} hrs",
+                       delta_color="off")
+            st.metric("Avg. Whale Risk", f"{eco_m['avg_risk']:.3f}",
+                       delta=f"{-risk_reduction:.0f}%",
+                       delta_color="normal")
+        with rc3:
+            st.markdown("**Savings**")
+            dist_pct = ((eco_m["distance_km"] - std_m["distance_km"]) / std_m["distance_km"] * 100) if std_m["distance_km"] > 0 else 0
+            st.metric("Distance Added", f"+{dist_pct:.1f}%")
+            st.metric("Risk Reduction", f"{risk_reduction:.0f}%")
+            st.metric("Max Risk Cell", f"{std_m['max_risk']:.3f} → {eco_m['max_risk']:.3f}")
+    else:
+        st.subheader("🚢 Route Info")
+        rc1, rc2, rc3, rc4 = st.columns(4)
+        rc1.metric("Distance", f"{std_m['distance_km']:.0f} km")
+        rc2.metric("Travel Time", f"{std_m['time_hrs']:.1f} hrs")
+        rc3.metric("Avg. Whale Risk", f"{std_m['avg_risk']:.3f}")
+        rc4.metric("Max Risk Cell", f"{std_m['max_risk']:.3f}")
+elif start_cell and end_cell:
+    st.warning("⚠️ No route found between the selected ports for this month. The ocean grid may not connect these locations.")
 
 # ---------------------------------------------------------------------------
 # Expandable panels
