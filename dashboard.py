@@ -116,6 +116,7 @@ with st.sidebar:
     model_name = st.selectbox(
         "Model",
         list(MODELS_META.keys()),
+        index=list(MODELS_META.keys()).index("XGBoost"),
         help="Select which trained model to use for predictions.",
     )
 
@@ -229,41 +230,3 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# ---------------------------------------------------------------------------
-# Expandable panels
-# ---------------------------------------------------------------------------
-col_left, col_right = st.columns(2)
-
-with col_left:
-    with st.expander("Feature Importance"):
-        img_path = Path(meta["importance_img"])
-        if img_path.exists():
-            st.image(str(img_path), use_container_width=True)
-        else:
-            st.info("Image not found — run training scripts to generate plots.")
-        st.caption(
-            "**Gain** measures the average reduction in prediction error each time a feature "
-            "is used to split a tree node. A high-gain feature (e.g. Dist_to_Shore_km) "
-            "consistently produces accurate, well-separated branches; a low-gain feature "
-            "adds little information when split on. Unlike frequency-based importance, "
-            "gain rewards quality of splits, not just how often a feature is used."
-        )
-
-with col_right:
-    with st.expander("About this model"):
-        st.markdown(meta["description"])
-        st.divider()
-        st.markdown(
-            f"""
-| Metric | Value | What it means |
-|---|---|---|
-| **ROC-AUC** | {meta['auc']} | How well the model ranks whale locations above background — 1.0 is perfect, 0.5 is random. |
-| **Recall @ τ** | {meta['recall']} | Of all real whale locations, the fraction correctly flagged. Primary metric — a missed whale risks a ship strike. |
-| **Precision @ τ** | {meta['precision']} | Of all flagged locations, the fraction that actually had a whale. Lower precision = more false alarms, an acceptable trade-off. |
-| **F1-Score** | {meta['f1']} | Harmonic mean of Recall and Precision. |
-| **Threshold (τ)** | {meta['threshold']} | Probability cut-off for "habitat" decisions, tuned below 0.5 to guarantee ≥ 80 % recall. |
-"""
-        )
-        st.caption(
-            "Evaluated on a temporal hold-out (2015–2018) — data the model never saw during training."
-        )
