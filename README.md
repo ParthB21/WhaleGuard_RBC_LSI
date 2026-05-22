@@ -22,6 +22,8 @@ This project is documented across three complementary files:
 | **[EDA_Walkthrough.md](EDA_Walkthrough.md)** | In-depth technical walkthrough of exploratory data analysis, statistical tests, and ecological validation |
 | **[ML_Walkthrough.md](ML_Walkthrough.md)** | In-depth technical walkthrough of model training, threshold optimisation, and evaluation |
 
+An **interactive Streamlit dashboard** (`dashboard.py`) is also included for live habitat probability queries and Gulf of St. Lawrence heatmap visualisation.
+
 ---
 
 ## Table of Contents
@@ -65,6 +67,8 @@ graph LR
     C --> D["Phase 3.5<br/>patch_chlorophyll.py<br/>Chlorophyll Gap-Fill"]
     D --> E["Phase 5<br/>patch_slope_features.py<br/>Spatial Features"]
     E --> F["Training<br/>train_*.py<br/>LR / XGBoost / RF + Threshold Opt."]
+    F --> G["Grid Generation<br/>generate_gulf_grid.py<br/>Gulf of St. Lawrence (2002–2026)"]
+    G --> H["Dashboard<br/>dashboard.py<br/>Interactive Habitat Visualisation"]
 ```
 
 ### Phase 1 — Sighting Data + Pseudo-Absence Generation
@@ -123,8 +127,6 @@ graph LR
 
 ### Phase 3.5 — Chlorophyll Patch
 
-**Script:** `patch_chlorophyll.py`
-
 **Problem:** The original Chlorophyll dataset (erdMH1chlamday, MODIS) returned 0% valid data due to heavy cloud cover masking the optical sensor.
 
 **Solution:** Switched to **MODIS Aqua R2022 Science Quality** (NASA Reprocessing 2022), a gap-filled Level-3 monthly product that mitigates cloud masking. Achieved **99.3% coverage** (up from 0%).
@@ -134,8 +136,6 @@ graph LR
 ---
 
 ### Phase 5 — Spatial Feature Engineering
-
-**Script:** `patch_slope_features.py`
 
 **What it does:** Downloads the ETOPO1 global bathymetry grid **once** as a single slab, then computes three new features:
 
@@ -286,34 +286,35 @@ The model trains on **10 features**. Here is what each one captures ecologically
 WhaleGuard_RBC_LSI/
 ├── data/
 │   ├── raw/
-│   │   └── 23305_RWSAS.csv              # Raw NOAA sightings
+│   │   └── 23305_RWSAS.csv                        # Raw NOAA sightings
 │   └── processed/
-│       ├── ML_Whale_Dataset_Base.csv     # Phase 2 output (4 env vars)
-│       ├── ML_Whale_Dataset_Engineered.csv        # Phase 3 (+ gradient)
-│       ├── ML_Whale_Dataset_Engineered_Patched.csv # Phase 3.5 (+ chl fix)
-│       └── ML_Whale_Dataset_Final.csv    # Phase 5 (+ 3 spatial features) ← CURRENT
+│       ├── ML_Whale_Dataset_Base.csv               # Phase 2 output (4 env vars)
+│       ├── ML_Whale_Dataset_Engineered.csv         # Phase 3 (+ SST gradient)
+│       ├── ML_Whale_Dataset_Engineered_Patched.csv # Phase 3.5 (+ Chl-a fix)
+│       ├── ML_Whale_Dataset_Final.csv              # Phase 5 (+ 3 spatial features) ← TRAINING DATA
+│       └── Gulf_St_Lawrence_Grid_Features.csv      # Gulf grid predictions (2002–2026)
 ├── models/
-│   ├── xgb_narw_sdm.json               # Trained XGBoost model
-│   ├── rf_narw_sdm.joblib              # Trained Random Forest model
-│   ├── lr_narw_sdm.joblib              # Trained LR baseline model
-│   ├── optimal_threshold.txt            # XGBoost: τ = 0.1950 for ≥80% recall
-│   └── rf_optimal_threshold.txt         # RF: τ = 0.1543 for ≥80% recall
-├── images/                               # 30 publication-ready plots
-├── logs/                                 # Pipeline execution logs
-├── pipeline.py                           # Phase 1-2: ETL + pseudo-absences
-├── phase3_feature_engineering.py         # Phase 3: SST gradient
-├── patch_chlorophyll.py                  # Phase 3.5: Chl-a gap-fill
-├── patch_slope_features.py              # Phase 5: Spatial features
-├── train_logistic_regression.py          # LR baseline model
-├── train_xgboost.py                     # XGBoost model + threshold opt.
-├── train_random_forest.py               # Random Forest model + threshold opt.
-├── manual_test.py                        # Inference test with 4 scenarios
-├── eda_narw_sdm.ipynb                    # Main EDA notebook
-├── shap_analysis.ipynb                   # SHAP interpretability analysis
-├── requirements.txt                      # Python dependencies
-├── README.md                             # Project overview (this file)
-├── EDA_Walkthrough.md                    # Technical EDA documentation
-└── ML_Walkthrough.md                     # Technical ML documentation
+│   ├── xgb_narw_sdm.json                          # Trained XGBoost model
+│   ├── rf_narw_sdm.joblib                         # Trained Random Forest model (best)
+│   ├── lr_narw_sdm.joblib                         # Trained LR baseline model
+│   ├── optimal_threshold.txt                       # XGBoost: τ = 0.1757 for ≥80% recall
+│   └── rf_optimal_threshold.txt                    # RF: τ = 0.1543 for ≥80% recall
+├── images/                                         # 35 publication-ready plots
+├── pipeline.py                                     # Phase 1-2: ETL + pseudo-absences
+├── phase3_feature_engineering.py                   # Phase 3: SST gradient + thermal fronts
+├── generate_gulf_grid.py                           # Gulf of St. Lawrence grid generation
+├── train_logistic_regression.py                    # LR baseline model
+├── train_xgboost.py                               # XGBoost model + threshold opt.
+├── train_random_forest.py                          # Random Forest model + threshold opt.
+├── manual_test.py                                  # Inference test with 4 scenarios
+├── eda_narw_sdm.ipynb                             # Main EDA notebook (27 visualisations)
+├── eda_phase5.py                                   # Phase 5 EDA: spatial feature analysis
+├── shap_analysis.ipynb                             # SHAP interpretability analysis
+├── dashboard.py                                    # Streamlit habitat prediction dashboard
+├── requirements.txt                                # Python dependencies
+├── README.md                                       # Project overview (this file)
+├── EDA_Walkthrough.md                             # Technical EDA documentation
+└── ML_Walkthrough.md                              # Technical ML documentation
 ```
 
 ---
@@ -323,7 +324,7 @@ WhaleGuard_RBC_LSI/
 1. **November 2017 Presence Rate Anomaly:** 22 sightings in the Gulf of St. Lawrence have positive longitudes instead of negative. Acceptable as-is, but can be fixed in Phase 1 re-runs.
 2. **Chlorophyll NaNs (0.7%):** Gap-filled MODIS product doesn't cover extreme dates/locations. Handled natively by XGBoost; median-imputed for RF and LR.
 3. **Salinity NaNs (4.4%):** SMAP satellite has lower resolution and reduced coastal coverage. Handled natively by XGBoost; median-imputed for RF and LR.
-4. **Manual Test False Positive:** Florida Keys in August gives a 21.3% probability, which exceeds the 19.5% XGBoost threshold. This is expected from a high-recall, cautious model.
+4. **Manual Test False Positive:** Florida Keys in August gives a 21.3% probability, which exceeds the 17.6% XGBoost threshold. This is expected from a high-recall, cautious model.
 
 ---
 
@@ -333,9 +334,23 @@ We used SHAP (SHapley Additive exPlanations) to deeply analyze feature impacts a
 
 ---
 
+## Dashboard
+
+`dashboard.py` is a Streamlit web application that serves the trained models interactively. It loads the Gulf of St. Lawrence grid (`Gulf_St_Lawrence_Grid_Features.csv`) and renders monthly habitat probability heatmaps across 2002–2026. Users can step through time to observe how whale habitat shifts with changing ocean conditions.
+
+To launch:
+```bash
+streamlit run dashboard.py
+```
+
+---
+
 ## Future Work
 
-1. **Habitat Suitability Maps:** Generate gridded probability maps for arbitrary dates.
+1. **Real-Time ERDDAP Forecasting:** Automate environmental data pull for T+72h predictions using near-realtime NOAA feeds, enabling true operational forecasting.
+2. **Vessel Alert API:** REST endpoint that cross-references ship AIS tracks with high-probability whale zones and issues speed-restriction advisories.
+3. **Extended Coverage:** Expand the spatial grid beyond the Gulf of St. Lawrence to cover the full Northwest Atlantic shelf (Cape Hatteras to the Scotian Shelf).
+4. **Temporal Forecasting:** Integrate ocean model forecasts (e.g., HYCOM) to project habitat suitability 72h into the future, not just hindcast.
 
 ---
 

@@ -2,3 +2,5 @@
 /__pycache__
 /logs
 /models/*.joblib
+/data/processed/checkpoint_*.csv
+/data/processed/Gulf_Grid_checkpoint.csv
