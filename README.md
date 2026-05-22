@@ -8,7 +8,7 @@ A production-grade machine learning pipeline for predicting North Atlantic Right
 Current solutions are primarily reactive, utilizing acoustic buoys or satellite detection to flag whales only after they have entered a shipping lane. These systems often force vessels to brake suddenly, which disrupts supply chains. Furthermore, enterprise-grade systems are often too expensive for smaller vessels, such as fishing and lobster boats, leaving them without AI-enabled protection.
 
 ## Our Solution
-WhaleGuard shifts maritime safety from a reactive model to a predictive forecasting system. The platform aims to visualize whale movements approximately 72 hours in advance to prevent collisions before they occur.
+WhaleGuard shifts maritime safety from a reactive model to a predictive forecasting system. The platform predicts whale habitat based on satellite-derived ocean conditions to enable proactive vessel rerouting and speed restrictions before collisions occur.
 
 ---
 
@@ -29,7 +29,7 @@ An **interactive Streamlit dashboard** (`dashboard.py`) is also included for liv
 ## Table of Contents
 
 1. [Project Overview](#project-overview)
-2. [Pipeline Architecture (5 Phases)](#pipeline-architecture-5-phases)
+2. [Pipeline Architecture (4 Phases)](#pipeline-architecture-4-phases)
 3. [Data Sources & Provenance](#data-sources--provenance)
 4. [Feature Dictionary (All 10 Features)](#feature-dictionary-all-10-features)
 5. [Results Summary](#results-summary)
@@ -42,13 +42,13 @@ An **interactive Streamlit dashboard** (`dashboard.py`) is also included for liv
 
 ## Project Overview
 
-North Atlantic Right Whales are among the most endangered large whales on Earth (~350 individuals remaining). Ship strikes and fishing gear entanglement are the primary causes of mortality. This project builds a **predictive habitat model** that can identify where whales are likely to be, enabling proactive management decisions (speed restrictions, route changes).
+North Atlantic Right Whales are among the most endangered large whales on Earth (~380 individuals remaining, including only ~70 breeding females). Ship strikes and fishing gear entanglement are the primary causes of mortality. This project builds a **predictive habitat model** that can identify where whales are likely to be, enabling proactive management decisions (speed restrictions, route changes).
 
 **Core question:** *Given oceanographic conditions at a location on a given day, what is the probability that a NARW is present?*
 
 **Model performance (all models tuned via `BayesSearchCV` + `skopt.space` dimensions):**
 - **ROC-AUC: 0.9064** (Random Forest) / **0.8986** (XGBoost) — strong discriminative power
-- **Recall: ≥80%** at conservation-optimised thresholds (RF τ = 0.1543, XGBoost τ = 0.1757)
+- **Recall: ≥80%** at conservation-optimised thresholds (RF τ = 0.15, XGBoost τ = 0.20)
 - Trained on 51,920 rows, tested on 12,981 rows (temporal split)
 - **Two-stage optimisation:** hyperparameter tuning maximises ROC-AUC (ranking quality), then threshold optimisation achieves ≥80% recall (conservation constraint)
 
@@ -56,19 +56,15 @@ North Atlantic Right Whales are among the most endangered large whales on Earth 
 
 ---
 
-## Pipeline Architecture (5 Phases)
+## Pipeline Architecture (4 Phases)
 
-The project is built in 5 sequential phases, each with its own script:
+The project is built in 4 sequential phases:
 
 ```mermaid
 graph LR
-    A["Phase 1<br/>pipeline.py<br/>Sightings + Pseudo-absences"] --> B["Phase 2<br/>pipeline.py<br/>Environmental Extraction"]
-    B --> C["Phase 3<br/>phase3_feature_engineering.py<br/>SST Gradient + Thermal Fronts"]
-    C --> D["Phase 3.5<br/>patch_chlorophyll.py<br/>Chlorophyll Gap-Fill"]
-    D --> E["Phase 5<br/>patch_slope_features.py<br/>Spatial Features"]
-    E --> F["Training<br/>train_*.py<br/>LR / XGBoost / RF + Threshold Opt."]
-    F --> G["Grid Generation<br/>generate_gulf_grid.py<br/>Gulf of St. Lawrence (2002–2026)"]
-    G --> H["Dashboard<br/>dashboard.py<br/>Interactive Habitat Visualisation"]
+    A["Phase 1<br/>Sightings +<br/>Pseudo-absences"] --> B["Phase 2<br/>Satellite Data<br/>Extraction"]
+    B --> C["Phase 3<br/>Training<br/>Models"]
+    C --> D["Phase 4<br/>Frontend Deployment<br/>using Streamlit"]
 ```
 
 ### Phase 1 — Sighting Data + Pseudo-Absence Generation
@@ -93,60 +89,26 @@ graph LR
 
 ---
 
-### Phase 2 — Environmental Covariate Extraction
+### Phase 2 — Satellite Data Extraction
 
-**Script:** `pipeline.py` (lines 400-831)
+**Scripts:** `pipeline.py`, `phase3_feature_engineering.py`, and spatial feature engineering scripts
 
-**What it does:** For each (lat, lon, date) row, extracts oceanographic data from NOAA ERDDAP using the **Slab Architecture**:
+**What it does:** Maps 10 ocean variables to every data point using a custom high-speed slab-fetch pipeline. Instead of making one HTTP request per data point (~65,000 requests), the engine groups points by date, downloads a single spatial "slab" covering all points for that day, and extracts values locally. This reduces network calls by ~100×.
 
-> **Slab Architecture:** Instead of making one HTTP request per data point (65,000 requests), the engine groups points by date, downloads a single spatial "slab" (a 2D grid covering all points for that day), and extracts values locally using nearest-neighbor interpolation. This reduces network calls by ~100×.
+**Smart interpolation:**
+- **Nearest Neighbor** — high-resolution grids (1 km SST, Bathymetry) to preserve sharpness
+- **Bilinear Blending** — low-resolution grids (Salinity, Chlorophyll) for continuous gradients
 
-**Variables extracted:**
-- **SST** — from MUR SST (JPL, 0.01° daily)
-- **Salinity** — from SMAP (JPL, 0.25° daily)
-- **Bathymetry** — from ETOPO1 (NOAA, 1 arc-minute, static)
-
-**Output:** `data/processed/ML_Whale_Dataset_Base.csv`
-
----
-
-### Phase 3 — SST Gradient & Thermal Front Detection
-
-**Script:** `phase3_feature_engineering.py`
-
-**What it does:**
-1. For each unique date, downloads the MUR SST slab
-2. Computes the **spatial gradient magnitude** (°C/km) using `np.gradient` with latitude-dependent longitude correction (cosine correction)
-3. Flags points where gradient > 0.035 °C/km as thermal fronts (threshold from **Tao et al., 2025**)
-
-**New columns:** `SST_Gradient`, `Is_Thermal_Front`
-
-**Output:** `data/processed/ML_Whale_Dataset_Engineered.csv`
-
----
-
-### Phase 3.5 — Chlorophyll Patch
-
-**Problem:** The original Chlorophyll dataset (erdMH1chlamday, MODIS) returned 0% valid data due to heavy cloud cover masking the optical sensor.
-
-**Solution:** Switched to **MODIS Aqua R2022 Science Quality** (NASA Reprocessing 2022), a gap-filled Level-3 monthly product that mitigates cloud masking. Achieved **99.3% coverage** (up from 0%).
-
-**Output:** `data/processed/ML_Whale_Dataset_Engineered_Patched.csv`
-
----
-
-### Phase 5 — Spatial Feature Engineering
-
-**What it does:** Downloads the ETOPO1 global bathymetry grid **once** as a single slab, then computes three new features:
-
-1. **Bathy_Slope** — `np.gradient` on the depth field (same method as SST gradient)
-2. **Dist_to_Shore_km** — Builds a `scipy.spatial.cKDTree` of all land cells, queries nearest neighbor for each point, computes haversine distance
-3. **Dist_to_Shelf_km** — Same KDTree approach, but indexing cells near the 200m isobath (±50m tolerance)
-
-**Runtime:** ~2 minutes (115s download + 2s computation). The speed comes from:
-- Single HTTP download (slab architecture)
-- Vectorized NumPy gradient (no Python loops)
-- O(n log n) KDTree queries (not O(n²) brute force)
+**Variables extracted and engineered:**
+- **SST** — MUR SST (JPL, 0.01° daily)
+- **Chlorophyll** — MODIS Aqua R2022 Science Quality (NASA, 4 km monthly, gap-filled to 99.3% coverage)
+- **Salinity** — SMAP (JPL, 0.25° daily)
+- **Bathymetry** — ETOPO1 (NOAA, 1 arc-min, static)
+- **SST_Gradient** — spatial gradient magnitude (°C/km), computed via `np.gradient` with cosine correction
+- **Is_Thermal_Front** — Boolean flag where SST_Gradient > 0.035 °C/km (Tao et al., 2025)
+- **Bathy_Slope** — bathymetric gradient (m/km) via `np.gradient` on ETOPO1
+- **Dist_to_Shore_km** — nearest coastline distance via `scipy.spatial.cKDTree`
+- **Dist_to_Shelf_km** — distance to 200m isobath (shelf break) via KDTree
 
 **Output:** `data/processed/ML_Whale_Dataset_Final.csv` (64,901 rows × 14 columns)
 
@@ -259,12 +221,12 @@ The model trains on **10 features**. Here is what each one captures ecologically
 
 ### Model Performance (Tuned via `BayesSearchCV` + `skopt.space` Dimensions)
 
-| Metric | Logistic Regression | XGBoost (τ=0.50) | XGBoost (τ=0.18) | Random Forest (τ=0.50) | Random Forest (τ=0.15) |
+| Metric | Logistic Regression | XGBoost (τ=0.50) | XGBoost (τ=0.20) | Random Forest (τ=0.50) | Random Forest (τ=0.15) |
 |---|---|---|---|---|---|
 | **ROC-AUC** | 0.8048 | 0.8986 | 0.8986 | **0.9064** | **0.9064** |
 | Recall | 0.8316 | 0.6927 | 0.8002 ✓ | 0.5756 | **0.8002** ✓ |
-| Precision | 0.3387 | 0.6430 | 0.4505 | **0.8478** | 0.4819 |
-| F1-Score | 0.4814 | 0.6669 | 0.5765 | **0.6857** | 0.6016 |
+| Precision | 0.3387 | 0.6430 | 0.501 | **0.8478** | 0.482 |
+| F1-Score | 0.4814 | 0.6669 | 0.616 | **0.6857** | 0.602 |
 | Accuracy | 0.6393 | 0.8607 | 0.7633 | **0.8938** | 0.7866 |
 
 <p align="center">
@@ -297,8 +259,8 @@ WhaleGuard_RBC_LSI/
 │   ├── xgb_narw_sdm.json                          # Trained XGBoost model
 │   ├── rf_narw_sdm.joblib                         # Trained Random Forest model (best)
 │   ├── lr_narw_sdm.joblib                         # Trained LR baseline model
-│   ├── optimal_threshold.txt                       # XGBoost: τ = 0.1757 for ≥80% recall
-│   └── rf_optimal_threshold.txt                    # RF: τ = 0.1543 for ≥80% recall
+│   ├── optimal_threshold.txt                       # XGBoost: τ = 0.20 for ≥80% recall
+│   └── rf_optimal_threshold.txt                    # RF: τ = 0.15 for ≥80% recall
 ├── images/                                         # 35 publication-ready plots
 ├── pipeline.py                                     # Phase 1-2: ETL + pseudo-absences
 ├── phase3_feature_engineering.py                   # Phase 3: SST gradient + thermal fronts
@@ -324,7 +286,7 @@ WhaleGuard_RBC_LSI/
 1. **November 2017 Presence Rate Anomaly:** 22 sightings in the Gulf of St. Lawrence have positive longitudes instead of negative. Acceptable as-is, but can be fixed in Phase 1 re-runs.
 2. **Chlorophyll NaNs (0.7%):** Gap-filled MODIS product doesn't cover extreme dates/locations. Handled natively by XGBoost; median-imputed for RF and LR.
 3. **Salinity NaNs (4.4%):** SMAP satellite has lower resolution and reduced coastal coverage. Handled natively by XGBoost; median-imputed for RF and LR.
-4. **Manual Test False Positive:** Florida Keys in August gives a 21.3% probability, which exceeds the 17.6% XGBoost threshold. This is expected from a high-recall, cautious model.
+4. **Manual Test False Positive:** Florida Keys in August gives a 21.3% probability, which exceeds the 20% XGBoost threshold. This is expected from a high-recall, cautious model.
 
 ---
 
