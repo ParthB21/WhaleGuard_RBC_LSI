@@ -89,28 +89,26 @@ graph LR
 
 ---
 
-### Phase 2 — Satellite Data Extraction
+### Phase 2 — Satellite Data Extraction & Feature Engineering
 
-**Scripts:** `pipeline.py`, `phase3_feature_engineering.py`, and spatial feature engineering scripts
-
-**What it does:** Maps 10 ocean variables to every data point using a custom high-speed slab-fetch pipeline. Instead of making one HTTP request per data point (~65,000 requests), the engine groups points by date, downloads a single spatial "slab" covering all points for that day, and extracts values locally. This reduces network calls by ~100×.
+Phase 2 maps 10 oceanographic variables onto every data point using a custom **slab-fetch extraction engine**. Instead of making one HTTP request per data point (~65,000 requests), the engine groups points by date, downloads a single spatial "slab" covering all points for that day, and extracts values locally — reducing network calls by ~80×.
 
 **Smart interpolation:**
 - **Nearest Neighbor** — high-resolution grids (1 km SST, Bathymetry) to preserve sharpness
 - **Bilinear Blending** — low-resolution grids (Salinity, Chlorophyll) for continuous gradients
 
-**Variables extracted and engineered:**
-- **SST** — MUR SST (JPL, 0.01° daily)
-- **Chlorophyll** — MODIS Aqua R2022 Science Quality (NASA, 4 km monthly, gap-filled to 99.3% coverage)
-- **Salinity** — SMAP (JPL, 0.25° daily)
-- **Bathymetry** — ETOPO1 (NOAA, 1 arc-min, static)
-- **SST_Gradient** — spatial gradient magnitude (°C/km), computed via `np.gradient` with cosine correction
-- **Is_Thermal_Front** — Boolean flag where SST_Gradient > 0.035 °C/km (Tao et al., 2025)
-- **Bathy_Slope** — bathymetric gradient (m/km) via `np.gradient` on ETOPO1
-- **Dist_to_Shore_km** — nearest coastline distance via `scipy.spatial.cKDTree`
-- **Dist_to_Shelf_km** — distance to 200m isobath (shelf break) via KDTree
+Phase 2 runs as **four sequential scripts**, each producing an intermediate CSV so progress is never lost:
 
-**Output:** `data/processed/ML_Whale_Dataset_Final.csv` (64,901 rows × 14 columns)
+| Step | Script | What it adds | Output |
+|---|---|---|---|
+| 2a | `pipeline.py` | SST, Salinity, Bathymetry (OPeNDAP slab extraction) | `ML_Whale_Dataset_Base.csv` |
+| 2b | `phase3_feature_engineering.py` | SST_Gradient, Is_Thermal_Front, Month (derived from MUR SST) | `ML_Whale_Dataset_Engineered.csv` |
+| 2c | `patch_chlorophyll.py` | Chlorophyll-a (MODIS Aqua R2022 Science Quality, gap-filled to 99.3%) | `ML_Whale_Dataset_Engineered_Patched.csv` |
+| 2d | `patch_slope_features.py` | Bathy_Slope, Dist_to_Shore_km, Dist_to_Shelf_km (ETOPO1 + KDTree) | `ML_Whale_Dataset_Final.csv` |
+
+> **Why separate scripts?** The original MODIS Chlorophyll dataset (`erdMH1chlamday`) returned 0% valid data due to cloud masking in high-latitude waters. `patch_chlorophyll.py` switches to NASA's R2022 Science Quality reprocessing, which uses an improved Ocean Color Index algorithm to achieve 99.3% coverage. Similarly, `patch_slope_features.py` adds three literature-backed spatial features (Baumgartner & Mate, 2005; Schick et al., 2009; Roberts et al., 2016) using a single ETOPO1 download with `scipy.spatial.cKDTree` for O(n log n) distance queries.
+
+**Final output:** `data/processed/ML_Whale_Dataset_Final.csv` (64,901 rows × 14 columns — 4 metadata + 10 features)
 
 ---
 
@@ -250,11 +248,11 @@ WhaleGuard_RBC_LSI/
 │   ├── raw/
 │   │   └── 23305_RWSAS.csv                        # Raw NOAA sightings
 │   └── processed/
-│       ├── ML_Whale_Dataset_Base.csv               # Phase 2 output (4 env vars)
-│       ├── ML_Whale_Dataset_Engineered.csv         # Phase 3 (+ SST gradient)
-│       ├── ML_Whale_Dataset_Engineered_Patched.csv # Phase 3.5 (+ Chl-a fix)
-│       ├── ML_Whale_Dataset_Final.csv              # Phase 5 (+ 3 spatial features) ← TRAINING DATA
-│       └── Gulf_St_Lawrence_Grid_Features.csv      # Gulf grid predictions (2002–2026)
+│       ├── ML_Whale_Dataset_Base.csv               # Step 2a output (SST, Salinity, Bathymetry)
+│       ├── ML_Whale_Dataset_Engineered.csv         # Step 2b output (+ SST gradient, thermal fronts)
+│       ├── ML_Whale_Dataset_Engineered_Patched.csv # Step 2c output (+ Chlorophyll-a R2022)
+│       ├── ML_Whale_Dataset_Final.csv              # Step 2d output (+ spatial features) ← TRAINING DATA
+│       └── Gulf_St_Lawrence_Grid_Features.csv      # Gulf grid for dashboard (2002–2026)
 ├── models/
 │   ├── xgb_narw_sdm.json                          # Trained XGBoost model
 │   ├── rf_narw_sdm.joblib                         # Trained Random Forest model (best)
@@ -262,17 +260,23 @@ WhaleGuard_RBC_LSI/
 │   ├── optimal_threshold.txt                       # XGBoost: τ = 0.20 for ≥80% recall
 │   └── rf_optimal_threshold.txt                    # RF: τ = 0.15 for ≥80% recall
 ├── images/                                         # 35 publication-ready plots
-├── pipeline.py                                     # Phase 1-2: ETL + pseudo-absences
-├── phase3_feature_engineering.py                   # Phase 3: SST gradient + thermal fronts
-├── generate_gulf_grid.py                           # Gulf of St. Lawrence grid generation
-├── train_logistic_regression.py                    # LR baseline model
-├── train_xgboost.py                               # XGBoost model + threshold opt.
-├── train_random_forest.py                          # Random Forest model + threshold opt.
+│
+│── pipeline.py                                     # Phase 1 + Step 2a: pseudo-absences + base extraction
+│── phase3_feature_engineering.py                   # Step 2b: SST gradient + thermal fronts
+│── patch_chlorophyll.py                            # Step 2c: Chlorophyll-a gap-fill (R2022 SQ)
+│── patch_slope_features.py                         # Step 2d: Bathy_Slope, Dist_to_Shore, Dist_to_Shelf
+│── generate_gulf_grid.py                           # Gulf of St. Lawrence prediction grid
+│
+├── train_logistic_regression.py                    # Phase 3: LR baseline model
+├── train_xgboost.py                               # Phase 3: XGBoost model + threshold opt.
+├── train_random_forest.py                          # Phase 3: Random Forest model + threshold opt.
 ├── manual_test.py                                  # Inference test with 4 scenarios
+│
 ├── eda_narw_sdm.ipynb                             # Main EDA notebook (27 visualisations)
-├── eda_phase5.py                                   # Phase 5 EDA: spatial feature analysis
+├── eda_phase5.py                                   # EDA for spatial features
 ├── shap_analysis.ipynb                             # SHAP interpretability analysis
-├── dashboard.py                                    # Streamlit habitat prediction dashboard
+│
+├── dashboard.py                                    # Phase 4: Streamlit habitat dashboard
 ├── requirements.txt                                # Python dependencies
 ├── README.md                                       # Project overview (this file)
 ├── EDA_Walkthrough.md                             # Technical EDA documentation
