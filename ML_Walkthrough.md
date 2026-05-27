@@ -78,7 +78,7 @@ The regularisation strength `C` is tuned via `BayesSearchCV` (40 iterations) wit
 
 | Parameter | Value | Tuned? |
 |---|---|---|
-| `C` | **0.28** (selected by BayesSearchCV) | ✓ `Real(0.001, 100, log-uniform)` — Bayesian optimisation |
+| `C` | **0.28** (selected by BayesSearchCV) | `Real(0.001, 100, log-uniform)` — Bayesian optimisation |
 | `penalty` | L2 (Ridge) | Fixed — keeps all features for interpretability |
 | `solver` | lbfgs | Fixed — efficient for L2 penalty |
 | `max_iter` | 1000 | Fixed — ensures convergence |
@@ -221,7 +221,7 @@ The tuned Random Forest achieves the **highest AUC of all three models** (0.9064
 | Metric | Default (τ=0.50) | Optimised (τ=0.15) | Change |
 |---|---|---|---|
 | **ROC-AUC** | 0.9064 | 0.9064 | — (threshold-independent) |
-| **Recall** | 0.5756 | **0.8002** ✓ | +22.5 pp |
+| **Recall** | 0.5756 | **0.8002** | +22.5 pp |
 | **Precision** | 0.8478 | 0.4819 | -36.6 pp |
 | **F1-Score** | 0.6857 | 0.6016 | -8.4 pp |
 | **Accuracy** | 0.8938 | 0.7866 | -10.7 pp |
@@ -276,7 +276,7 @@ We sweep all classification thresholds using the precision-recall curve and sele
 | Metric | Default (τ=0.50) | Optimised (τ=0.18) | Change |
 |---|---|---|---|
 | **ROC-AUC** | 0.8986 | 0.8986 | — (threshold-independent) |
-| **Recall** | 0.6927 | **0.8002** ✓ | +10.8 pp |
+| **Recall** | 0.6927 | **0.8002** | +10.8 pp |
 | **Precision** | 0.6430 | 0.4505 | -19.3 pp |
 | **F1-Score** | 0.6669 | 0.5765 | -9.0 pp |
 | **Accuracy** | 0.8607 | 0.7633 | -9.7 pp |
@@ -303,7 +303,7 @@ All hyperparameters were tuned using `BayesSearchCV` (40 iterations) with `TimeS
 | Metric | LR (Tuned) | XGBoost (τ=0.50) | XGBoost (τ=0.18) | RF (τ=0.50) | RF (τ=0.15) |
 |---|---|---|---|---|---|
 | **ROC-AUC** | 0.8048 | 0.8986 | 0.8986 | **0.9064** | **0.9064** |
-| **Recall** | 0.8316 | 0.6927 | 0.8002 ✓ | 0.5756 | **0.8002** ✓ |
+| **Recall** | 0.8316 | 0.6927 | 0.8002 | 0.5756 | **0.8002** |
 | **Precision** | 0.3387 | 0.6430 | 0.4505 | **0.8478** | 0.4819 |
 | **F1-Score** | 0.4814 | 0.6669 | 0.5765 | **0.6857** | 0.6016 |
 | **Accuracy** | 0.6393 | 0.8607 | 0.7633 | **0.8938** | 0.7866 |
@@ -424,10 +424,10 @@ To validate ecological plausibility beyond statistical metrics, we test the trai
 
 | Scenario | Location | Season | Expected | Probability | Prediction |
 |---|---|---|---|---|---|
-| 🐳 Cape Cod Bay | Shallow shelf, 8 km from shore | April | HIGH | High | **WHALE HABITAT ✓** |
-| 🐳 Bay of Fundy | Deep basin, 30 km from shore | July | HIGH | High | **WHALE HABITAT ✓** |
-| ❌ Mid-Atlantic Ridge | Abyssal depth, 400 km offshore | June | LOW | Low | **NOT HABITAT ✗** |
-| ❌ Florida Keys | Tropical shallow, August | LOW | Borderline | ~21% | **Borderline/Positive** |
+| Cape Cod Bay | Shallow shelf, 8 km from shore | April | HIGH | High | **WHALE HABITAT** |
+| Bay of Fundy | Deep basin, 30 km from shore | July | HIGH | High | **WHALE HABITAT** |
+| Mid-Atlantic Ridge | Abyssal depth, 400 km offshore | June | LOW | Low | **NOT HABITAT** |
+| Florida Keys | Tropical shallow, August | LOW | Borderline | ~21% | **Borderline/Positive** |
 
 ### Ecological Plausibility Assessment
 

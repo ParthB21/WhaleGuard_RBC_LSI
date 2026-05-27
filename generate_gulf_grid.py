@@ -36,6 +36,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+# pyrefly: ignore [missing-import]
 import xarray as xr
 from scipy.spatial import cKDTree
 
@@ -260,9 +261,9 @@ def build_ocean_grid() -> "tuple[np.ndarray, np.ndarray, xr.DataArray]":
     t0 = time.time()
     try:
         ds_etopo = xr.open_dataset(ETOPO_URL, engine="netcdf4")
-        log.info(f"    ✓ Connected — dims: {dict(ds_etopo.dims)}")
+        log.info(f"    Connected — dims: {dict(ds_etopo.dims)}")
     except Exception as exc:
-        log.error(f"    ✗ ETOPO1 connection failed: {exc}")
+        log.error(f"    ETOPO1 connection failed: {exc}")
         raise
 
     etopo_slab = _fetch_slab_with_retry(
@@ -274,7 +275,7 @@ def build_ocean_grid() -> "tuple[np.ndarray, np.ndarray, xr.DataArray]":
         raise RuntimeError("ETOPO1 slab download failed after all retries")
 
     ds_etopo.close()
-    log.info(f"    ✓ ETOPO1 loaded in {time.time() - t0:.1f}s  (shape: {etopo_slab.shape})\n")
+    log.info(f"    ETOPO1 loaded in {time.time() - t0:.1f}s  (shape: {etopo_slab.shape})\n")
 
     # Ocean mask: keep points where seafloor depth < 0 m
     altitude_at_grid = _extract_at_points(etopo_slab, all_lats, all_lons, use_nearest=True)
@@ -324,7 +325,7 @@ def compute_static_features(
     log.info("  [2a] Bathymetry at ocean grid points…")
     bathymetry = _extract_at_points(etopo_slab, ocean_lats, ocean_lons, use_nearest=True)
     log.info(
-        f"    ✓ Range: [{np.nanmin(bathymetry):.0f} m, {np.nanmax(bathymetry):.0f} m]"
+        f"    Range: [{np.nanmin(bathymetry):.0f} m, {np.nanmax(bathymetry):.0f} m]"
         f"  |  NaN: {np.isnan(bathymetry).sum()}\n"
     )
 
@@ -344,7 +345,7 @@ def compute_static_features(
     )
     bathy_slope = _extract_at_points(slope_da, ocean_lats, ocean_lons, use_nearest=True)
     log.info(
-        f"    ✓ Range: [{np.nanmin(bathy_slope):.3f}, {np.nanmax(bathy_slope):.3f}] m/km"
+        f"    Range: [{np.nanmin(bathy_slope):.3f}, {np.nanmax(bathy_slope):.3f}] m/km"
         f"  |  NaN: {np.isnan(bathy_slope).sum()}\n"
     )
 
@@ -372,7 +373,7 @@ def compute_static_features(
         dist_shore = _haversine_km(ocean_lats, ocean_lons, land_lats[idx], land_lons[idx])
 
     log.info(
-        f"    ✓ Range: [{np.nanmin(dist_shore):.1f}, {np.nanmax(dist_shore):.1f}] km"
+        f"    Range: [{np.nanmin(dist_shore):.1f}, {np.nanmax(dist_shore):.1f}] km"
         f"  |  NaN: {np.isnan(dist_shore).sum()}\n"
     )
 
@@ -402,7 +403,7 @@ def compute_static_features(
         )
 
     log.info(
-        f"    ✓ Range: [{np.nanmin(dist_shelf):.1f}, {np.nanmax(dist_shelf):.1f}] km"
+        f"    Range: [{np.nanmin(dist_shelf):.1f}, {np.nanmax(dist_shelf):.1f}] km"
         f"  |  NaN: {np.isnan(dist_shelf).sum()}\n"
     )
 
@@ -665,37 +666,37 @@ def main() -> None:
 
     try:
         ds_sst = xr.open_dataset(SST_URL, engine="netcdf4")
-        log.info(f"  ✓ SST (MUR) connected         dims: {dict(ds_sst.dims)}")
+        log.info(f"  SST (MUR) connected         dims: {dict(ds_sst.dims)}")
     except Exception as exc:
-        log.error(f"  ✗ SST connection failed: {exc}")
+        log.error(f"  SST connection failed: {exc}")
         raise
 
     try:
         ds_chl_modis = xr.open_dataset(CHLOROPHYLL_URL, engine="netcdf4")
-        log.info(f"  ✓ Chl MODIS connected          dims: {dict(ds_chl_modis.dims)}")
+        log.info(f"  Chl MODIS connected          dims: {dict(ds_chl_modis.dims)}")
     except Exception as exc:
-        log.warning(f"  ✗ Chl MODIS connection failed: {exc} — years ≤ {VIIRS_CHL_SWITCH_YEAR - 1} will be NaN")
+        log.warning(f"  Chl MODIS connection failed: {exc} — years <= {VIIRS_CHL_SWITCH_YEAR - 1} will be NaN")
         ds_chl_modis = None
 
     try:
         ds_chl_viirs = xr.open_dataset(VIIRS_CHL_URL, engine="netcdf4")
-        log.info(f"  ✓ Chl VIIRS connected          dims: {dict(ds_chl_viirs.dims)}")
+        log.info(f"  Chl VIIRS connected          dims: {dict(ds_chl_viirs.dims)}")
     except Exception as exc:
-        log.warning(f"  ✗ Chl VIIRS connection failed: {exc} — years ≥ {VIIRS_CHL_SWITCH_YEAR} will be NaN")
+        log.warning(f"  Chl VIIRS connection failed: {exc} — years >= {VIIRS_CHL_SWITCH_YEAR} will be NaN")
         ds_chl_viirs = None
 
     try:
         ds_sal_soda = xr.open_dataset(SALINITY_URL, engine="netcdf4")
-        log.info(f"  ✓ Sal SODA connected           dims: {dict(ds_sal_soda.dims)}")
+        log.info(f"  Sal SODA connected           dims: {dict(ds_sal_soda.dims)}")
     except Exception as exc:
-        log.warning(f"  ✗ Sal SODA connection failed: {exc} — years ≤ {SMAP_SAL_SWITCH_YEAR - 1} will be NaN")
+        log.warning(f"  Sal SODA connection failed: {exc} — years <= {SMAP_SAL_SWITCH_YEAR - 1} will be NaN")
         ds_sal_soda = None
 
     try:
         ds_sal_smap = xr.open_dataset(SMAP_SAL_URL, engine="netcdf4")
-        log.info(f"  ✓ Sal SMAP connected           dims: {dict(ds_sal_smap.dims)}")
+        log.info(f"  Sal SMAP connected           dims: {dict(ds_sal_smap.dims)}")
     except Exception as exc:
-        log.warning(f"  ✗ Sal SMAP connection failed: {exc} — years ≥ {SMAP_SAL_SWITCH_YEAR} will be NaN")
+        log.warning(f"  Sal SMAP connection failed: {exc} — years >= {SMAP_SAL_SWITCH_YEAR} will be NaN")
         ds_sal_smap = None
 
     log.info("")
@@ -779,7 +780,7 @@ def main() -> None:
             rate = month_idx / elapsed_min if elapsed_min > 0 else 1
             eta_min = remaining_months / rate if rate > 0 else 0
             log.info(
-                f"\n  ✓ Year {year} checkpoint saved — "
+                f"\n  Year {year} checkpoint saved — "
                 f"{len(year_rows):,} new rows | "
                 f"{n_ckpt_total:,} total | "
                 f"Elapsed: {elapsed_min:.1f} min | "

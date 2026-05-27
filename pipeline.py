@@ -322,10 +322,10 @@ def _open_dataset(name: str, config: dict) -> xr.Dataset:
     log.info(f"  Connecting to {name}: {config['url']}")
     try:
         ds = xr.open_dataset(config["url"], engine="netcdf4")
-        log.info(f"    ✓ Connected — dims: {dict(ds.dims)}")
+        log.info(f"    Connected — dims: {dict(ds.dims)}")
         return ds
     except Exception as e:
-        log.error(f"    ✗ Failed to connect to {name}: {e}")
+        log.error(f"    Failed to connect to {name}: {e}")
         raise
 
 
@@ -506,7 +506,7 @@ def extract_environmental_features(df: pd.DataFrame) -> pd.DataFrame:
         elapsed_total = time.time() - t_start
         valid_pct = (extracted_count / total_points) * 100
         log.info(
-            f"    ✓ {name} complete — {extracted_count:,}/{total_points:,} "
+            f"    {name} complete — {extracted_count:,}/{total_points:,} "
             f"valid ({valid_pct:.1f}%) in {elapsed_total:.1f}s\n"
         )
 
@@ -514,7 +514,7 @@ def extract_environmental_features(df: pd.DataFrame) -> pd.DataFrame:
         OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
         checkpoint_file = OUTPUT_CSV.with_name(f"checkpoint_{name}.csv")
         df.to_csv(checkpoint_file, index=False)
-        log.info(f"    ✓ Checkpoint saved: {checkpoint_file}\n")
+        log.info(f"    Checkpoint saved: {checkpoint_file}\n")
 
         ds.close()
 

@@ -14,9 +14,15 @@
 ==========================================================================
 """
 
+import sys
 import pandas as pd
+# pyrefly: ignore [missing-import]
 import xgboost as xgb
 from pathlib import Path
+
+# Force UTF-8 encoding on Windows consoles so box-drawing characters render correctly
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 # ── Load Model & Threshold ───────────────────────────────────────────────
 model = xgb.XGBClassifier()
@@ -44,7 +50,7 @@ FEATURE_COLS = [
 # ── Test Scenarios ───────────────────────────────────────────────────────
 scenarios = [
     {
-        "name": "🐳 Cape Cod Bay — Spring Feeding (HIGH expected)",
+        "name": "Cape Cod Bay — Spring Feeding (HIGH expected)",
         "desc": "Shallow shelf, close to shore, cold productive water with fronts",
         "data": {
             "SST": 8.0,                # Cool spring temps
@@ -60,7 +66,7 @@ scenarios = [
         },
     },
     {
-        "name": "🐳 Bay of Fundy — Summer Foraging (HIGH expected)",
+        "name": "Bay of Fundy — Summer Foraging (HIGH expected)",
         "desc": "Classic summer habitat — Calanus aggregation zone",
         "data": {
             "SST": 12.0,              # Summer surface temp
@@ -76,7 +82,7 @@ scenarios = [
         },
     },
     {
-        "name": "❌ Deep Ocean — Mid-Atlantic Ridge (LOW expected)",
+        "name": "Deep Ocean — Mid-Atlantic Ridge (LOW expected)",
         "desc": "Deep pelagic water, far from shore, no prey aggregation",
         "data": {
             "SST": 22.0,              # Warm Gulf Stream
@@ -92,7 +98,7 @@ scenarios = [
         },
     },
     {
-        "name": "❌ Tropical Shallow — Florida Keys (LOW expected)",
+        "name": "Tropical Shallow — Florida Keys (LOW expected)",
         "desc": "Too warm, wrong salinity, calving mothers only in winter",
         "data": {
             "SST": 28.0,              # Tropical
@@ -111,13 +117,13 @@ scenarios = [
 
 # ── Run Predictions ──────────────────────────────────────────────────────
 print("\n" + "═" * 70)
-print("  🐳 NARW HABITAT MODEL — MANUAL INFERENCE TEST")
+print("  NARW HABITAT MODEL — MANUAL INFERENCE TEST")
 print("═" * 70)
 
 for scenario in scenarios:
     test_df = pd.DataFrame([scenario["data"]])[FEATURE_COLS]
     proba = model.predict_proba(test_df)[0][1]
-    prediction = "WHALE HABITAT ✓" if proba >= threshold else "NOT HABITAT ✗"
+    prediction = "WHALE HABITAT" if proba >= threshold else "NOT HABITAT"
 
     print(f"\n  {scenario['name']}")
     print(f"  {scenario['desc']}")

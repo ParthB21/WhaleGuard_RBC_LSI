@@ -114,7 +114,7 @@ for feat, meta in new_features.items():
     path = f"{IMG_DIR}/kde_{feat.lower()}.png"
     fig.savefig(path, dpi=200, bbox_inches="tight")
     plt.close(fig)
-    print(f"  ✓ {path}")
+    print(f"  Saved: {path}")
 
 
 # =========================================================================
@@ -152,7 +152,7 @@ fig.tight_layout()
 path = f"{IMG_DIR}/correlation_heatmap_full.png"
 fig.savefig(path, dpi=200, bbox_inches="tight")
 plt.close(fig)
-print(f"  ✓ {path}")
+print(f"  Saved: {path}")
 
 
 # =========================================================================
@@ -211,7 +211,7 @@ fig.tight_layout()
 path = f"{IMG_DIR}/presence_rate_vs_env.png"
 fig.savefig(path, dpi=200, bbox_inches="tight")
 plt.close(fig)
-print(f"  ✓ {path}")
+print(f"  Saved: {path}")
 
 
 # =========================================================================
@@ -264,7 +264,7 @@ fig.tight_layout()
 path = f"{IMG_DIR}/month_stratified_presence_heatmaps.png"
 fig.savefig(path, dpi=200, bbox_inches="tight")
 plt.close(fig)
-print(f"  ✓ {path}")
+print(f"  Saved: {path}")
 
 
 # =========================================================================
@@ -292,7 +292,7 @@ for feat in all_features:
         "U-statistic": stat,
         "p-value": pval,
         "Effect Size (r)": abs(r),
-        "Significant": "✓" if pval < 0.001 else "✗",
+        "Significant": "Yes" if pval < 0.001 else "No",
         "Pres. Mean": pres_vals.mean(),
         "Abs. Mean": abs_vals.mean(),
     })
@@ -342,7 +342,7 @@ path = f"{IMG_DIR}/mann_whitney_all_features.png"
 fig.savefig(path, dpi=200, bbox_inches="tight",
             facecolor="#0d1117", edgecolor="none")
 plt.close(fig)
-print(f"\n  ✓ {path}")
+print(f"\n  Saved: {path}")
 
 
 # =========================================================================
@@ -401,7 +401,7 @@ fig.tight_layout()
 path = f"{IMG_DIR}/kernel_pca.png"
 fig.savefig(path, dpi=200, bbox_inches="tight")
 plt.close(fig)
-print(f"  ✓ {path}")
+print(f"  Saved: {path}")
 
 
 # =========================================================================
@@ -436,7 +436,7 @@ fig.tight_layout()
 path = f"{IMG_DIR}/presence_rate_year_month.png"
 fig.savefig(path, dpi=200, bbox_inches="tight")
 plt.close(fig)
-print(f"  ✓ {path}")
+print(f"  Saved: {path}")
 
 
 # =========================================================================

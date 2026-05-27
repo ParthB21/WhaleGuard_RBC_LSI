@@ -233,16 +233,16 @@ The Mann-Whitney U test is a non-parametric hypothesis test that quantifies whet
 
 | Rank | Feature | Effect Size \|r\| | p-value | Pres. Mean | Abs. Mean | Significant? |
 |---|---|---|---|---|---|---|
-| 1 | **Dist_to_Shore_km** | **0.656** | 0.00e+00 | 26.4 km | 102.0 km | ✓ |
-| 2 | **Chlorophyll** | **0.571** | 0.00e+00 | 3.53 mg/m³ | 1.90 mg/m³ | ✓ |
-| 3 | **Bathymetry** | **0.496** | 0.00e+00 | -58.5 m | -373.9 m | ✓ |
-| 4 | Salinity | 0.377 | 0.00e+00 | 32.2 PSU | 33.3 PSU | ✓ |
-| 5 | SST | 0.179 | 3.83e-216 | 10.6°C | 12.9°C | ✓ |
-| 6 | Dist_to_Shelf_km | 0.116 | 1.35e-92 | 51.1 km | 44.4 km | ✓ |
-| 7 | SST_Gradient | 0.085 | 3.87e-49 | 0.048 | 0.046 | ✓ |
-| 8 | Bathy_Slope | 0.082 | 5.66e-47 | 3.87 | 7.86 | ✓ |
-| 9 | Is_Thermal_Front | 0.047 | 1.85e-21 | 0.54 | 0.49 | ✓ |
-| 10 | Month | 0.001 | 8.00e-01 | 4.55 | 4.54 | ✗ |
+| 1 | **Dist_to_Shore_km** | **0.656** | 0.00e+00 | 26.4 km | 102.0 km | Yes |
+| 2 | **Chlorophyll** | **0.571** | 0.00e+00 | 3.53 mg/m³ | 1.90 mg/m³ | Yes |
+| 3 | **Bathymetry** | **0.496** | 0.00e+00 | -58.5 m | -373.9 m | Yes |
+| 4 | Salinity | 0.377 | 0.00e+00 | 32.2 PSU | 33.3 PSU | Yes |
+| 5 | SST | 0.179 | 3.83e-216 | 10.6°C | 12.9°C | Yes |
+| 6 | Dist_to_Shelf_km | 0.116 | 1.35e-92 | 51.1 km | 44.4 km | Yes |
+| 7 | SST_Gradient | 0.085 | 3.87e-49 | 0.048 | 0.046 | Yes |
+| 8 | Bathy_Slope | 0.082 | 5.66e-47 | 3.87 | 7.86 | Yes |
+| 9 | Is_Thermal_Front | 0.047 | 1.85e-21 | 0.54 | 0.49 | Yes |
+| 10 | Month | 0.001 | 8.00e-01 | 4.55 | 4.54 | No |
 
 ### Interpretation
 

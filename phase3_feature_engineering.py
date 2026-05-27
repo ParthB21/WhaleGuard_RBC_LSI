@@ -115,9 +115,9 @@ def run_sanity_check(df: pd.DataFrame) -> None:
     log.info(f"    Ratio (0:1):                    {ratio:.2f}:1")
 
     if 3.5 <= ratio <= 4.5:
-        log.info("    ✓ Balance is within expected range (≈4:1)\n")
+        log.info("    Balance is within expected range (≈4:1)\n")
     else:
-        log.warning(f"    ⚠ Unexpected ratio — expected ≈4:1, got {ratio:.2f}:1\n")
+        log.warning(f"    Unexpected ratio — expected ≈4:1, got {ratio:.2f}:1\n")
 
     # ── 2. Completeness ──────────────────────────────────────────────────
     log.info("─── 2. DATA COMPLETENESS ─────────────────────────────────────")
@@ -131,7 +131,7 @@ def run_sanity_check(df: pd.DataFrame) -> None:
         valid   = int(df[col].notna().sum())
         missing = int(df[col].isna().sum())
         pct     = (valid / total) * 100
-        status  = "✓" if pct > 90 else ("⚠" if pct > 50 else "✗")
+        status  = "OK" if pct > 90 else ("WARN" if pct > 50 else "FAIL")
         log.info(f"    {col:<15} {valid:>8,} {missing:>8,} {pct:>8.1f}% {status}")
 
     log.info("")
@@ -154,7 +154,7 @@ def run_sanity_check(df: pd.DataFrame) -> None:
     for col, limits in plausibility.items():
         if col not in df.columns or df[col].isna().all():
             log.info(f"    {col} ({limits['desc']})")
-            log.info(f"      ✗ No valid data — skipping plausibility check\n")
+            log.info(f"      No valid data — skipping plausibility check\n")
             continue
 
         col_min  = df[col].min()
@@ -168,13 +168,13 @@ def run_sanity_check(df: pd.DataFrame) -> None:
 
         in_range = col_min >= limits["min"] and col_max <= limits["max"]
         if in_range:
-            log.info(f"      ✓ Values are physically plausible\n")
+            log.info(f"      Values are physically plausible\n")
         else:
             n_outliers = int(
                 ((df[col] < limits["min"]) | (df[col] > limits["max"])).sum()
             )
             log.warning(
-                f"      ⚠ {n_outliers:,} values outside expected physical range\n"
+                f"      {n_outliers:,} values outside expected physical range\n"
             )
 
     log.info("─── SANITY CHECK COMPLETE ────────────────────────────────────\n")
@@ -269,9 +269,9 @@ def compute_thermal_fronts(df: pd.DataFrame) -> pd.DataFrame:
     log.info(f"  Connecting to MUR SST: {SST_URL}")
     try:
         ds = xr.open_dataset(SST_URL, engine="netcdf4")
-        log.info(f"    ✓ Connected — dims: {dict(ds.dims)}\n")
+        log.info(f"    Connected — dims: {dict(ds.dims)}\n")
     except Exception as e:
-        log.error(f"    ✗ Failed to connect: {e}")
+        log.error(f"    Failed to connect: {e}")
         log.error("    Cannot compute thermal fronts. Returning dataset as-is.")
         return df
 
@@ -349,7 +349,7 @@ def compute_thermal_fronts(df: pd.DataFrame) -> pd.DataFrame:
     n_fronts = int(df["Is_Thermal_Front"].sum())
     valid_gradients = int(df["SST_Gradient"].notna().sum())
 
-    log.info(f"\n  ✓ Gradient extraction complete in {elapsed_total:.1f}s")
+    log.info(f"\n  Gradient extraction complete in {elapsed_total:.1f}s")
     log.info(f"    Valid gradients:  {valid_gradients:,}/{len(df):,} "
              f"({(valid_gradients/len(df))*100:.1f}%)")
     log.info(f"    Thermal fronts:   {n_fronts:,} points "

@@ -131,7 +131,7 @@ def main():
     print_section("1. Data Loading")
 
     if not DATA_PATH.exists():
-        print(f"  ✗ File not found: {DATA_PATH}")
+        print(f"  File not found: {DATA_PATH}")
         sys.exit(1)
 
     df = pd.read_csv(DATA_PATH, parse_dates=["Date"])
@@ -314,7 +314,7 @@ def main():
         # Fallback: pick the threshold closest to target recall
         closest_idx   = np.argmin(np.abs(rec_curve - TARGET_RECALL))
         opt_threshold = thresholds_pr[closest_idx]
-        print(f"  ⚠ Could not achieve {TARGET_RECALL:.0%} recall; "
+        print(f"  Could not achieve {TARGET_RECALL:.0%} recall; "
               f"using closest: {rec_curve[closest_idx]:.4f}")
 
     # Apply optimised threshold
@@ -333,7 +333,7 @@ def main():
     print(f"  ├─────────────────────┼──────────────┼──────────────────┤")
     print(f"  │  Accuracy           │  {acc_def:>10.4f}  │  {acc_opt:>10.4f}      │")
     print(f"  │  Precision          │  {precision_def:>10.4f}  │  {precision_opt:>10.4f}      │")
-    print(f"  │  Recall (Sens.)     │  {recall_def:>10.4f}  │  {recall_opt:>10.4f}  ✓   │")
+    print(f"  │  Recall (Sens.)     │  {recall_def:>10.4f}  │  {recall_opt:>10.4f}      │")
     print(f"  │  F1-Score           │  {f1_def:>10.4f}  │  {f1_opt:>10.4f}      │")
     print(f"  │  ROC-AUC            │  {auc:>10.4f}  │  {auc:>10.4f}      │")
     print(f"  └─────────────────────┴──────────────┴──────────────────┘")
@@ -401,7 +401,7 @@ def main():
     roc_path = IMG_DIR / "roc_curve.png"
     fig.savefig(roc_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
-    print(f"  ✓ Saved: {roc_path}")
+    print(f"  Saved: {roc_path}")
 
     # ── 6b. Precision-Recall Tradeoff Curve ──────────────────────────
     print_section("6b. Generating Precision-Recall Tradeoff Curve")
@@ -440,7 +440,7 @@ def main():
     pr_path = IMG_DIR / "precision_recall_tradeoff.png"
     fig.savefig(pr_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
-    print(f"  ✓ Saved: {pr_path}")
+    print(f"  Saved: {pr_path}")
 
     # ── 7. Feature Importance ────────────────────────────────────────
     print_section("7. Generating Feature Importance Chart")
@@ -478,7 +478,7 @@ def main():
     fi_path = IMG_DIR / "feature_importance.png"
     fig.savefig(fi_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
-    print(f"  ✓ Saved: {fi_path}")
+    print(f"  Saved: {fi_path}")
 
     # Print ranking
     print(f"\n  Feature Importance Ranking:")
@@ -491,8 +491,8 @@ def main():
 
     model_path = MODEL_DIR / "xgb_narw_sdm.json"
     model.save_model(str(model_path))
-    print(f"  ✓ Model saved: {model_path}")
-    print(f"  ✓ Model format: XGBoost JSON (portable, version-safe)")
+    print(f"  Model saved: {model_path}")
+    print(f"  Model format: XGBoost JSON (portable, version-safe)")
 
     # Save the optimal threshold alongside the model
     threshold_path = MODEL_DIR / "optimal_threshold.txt"
@@ -505,15 +505,15 @@ def main():
         f.write(f"precision={precision_opt:.6f}\n")
         f.write(f"f1={f1_opt:.6f}\n")
         f.write(f"auc={auc:.6f}\n")
-    print(f"  ✓ Threshold saved: {threshold_path}")
-    print(f"  ✓ Deploy with: predict(proba >= {opt_threshold:.4f})")
+    print(f"  Threshold saved: {threshold_path}")
+    print(f"  Deploy with: predict(proba >= {opt_threshold:.4f})")
 
     # ── Summary ──────────────────────────────────────────────────────
     total_time = time.time() - t_start
     print_header("Training Complete")
     print(f"  Model Performance (Optimised for Conservation):")
     print(f"    ROC-AUC:    {auc:.4f}")
-    print(f"    Recall:     {recall:.4f}  (target ≥ {TARGET_RECALL:.0%} ✓)")
+    print(f"    Recall:     {recall:.4f}  (target >= {TARGET_RECALL:.0%})")
     print(f"    Precision:  {precision:.4f}")
     print(f"    F1-Score:   {f1:.4f}")
     print(f"    Threshold:  {opt_threshold:.4f}  (default was 0.50)")

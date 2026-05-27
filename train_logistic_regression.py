@@ -132,7 +132,7 @@ def main():
     print_section("1. Data Loading")
 
     if not DATA_PATH.exists():
-        print(f"  ✗ File not found: {DATA_PATH}")
+        print(f"  File not found: {DATA_PATH}")
         sys.exit(1)
 
     df = pd.read_csv(DATA_PATH, parse_dates=["Date"])
@@ -301,7 +301,7 @@ def main():
     roc_path = IMG_DIR / "lr_roc_curve.png"
     fig.savefig(roc_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
-    print(f"  ✓ Saved: {roc_path}")
+    print(f"  Saved: {roc_path}")
 
     # ── 7. Coefficient Analysis ──────────────────────────────────────
     print_section("7. Coefficient Analysis")
@@ -351,7 +351,7 @@ def main():
     coef_path = IMG_DIR / "lr_coefficients.png"
     fig.savefig(coef_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
-    print(f"  ✓ Saved: {coef_path}")
+    print(f"  Saved: {coef_path}")
 
     # Print coefficient ranking
     print(f"\n  Intercept: {intercept:+.4f}")
@@ -386,9 +386,9 @@ def main():
 
     model_path = MODEL_DIR / "lr_narw_sdm.joblib"
     joblib.dump(pipeline, str(model_path))
-    print(f"  ✓ Model saved: {model_path}")
-    print(f"  ✓ Model format: joblib Pipeline (imputer + scaler + classifier)")
-    print(f"  ✓ To load: pipeline = joblib.load('{model_path}')")
+    print(f"  Model saved: {model_path}")
+    print(f"  Model format: joblib Pipeline (imputer + scaler + classifier)")
+    print(f"  To load: pipeline = joblib.load('{model_path}')")
 
     # ── Summary ──────────────────────────────────────────────────────
     total_time = time.time() - t_start

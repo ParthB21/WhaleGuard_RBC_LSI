@@ -221,11 +221,11 @@ The model trains on **10 features**. Here is what each one captures ecologically
 
 | Metric | Logistic Regression | XGBoost (τ=0.50) | XGBoost (τ=0.20) | Random Forest (τ=0.50) | Random Forest (τ=0.15) |
 |---|---|---|---|---|---|
-| **ROC-AUC** | 0.8048 | 0.8986 | 0.8986 | **0.9064** | **0.9064** |
-| Recall | 0.8316 | 0.6927 | 0.8002 ✓ | 0.5756 | **0.8002** ✓ |
-| Precision | 0.3387 | 0.6430 | 0.501 | **0.8478** | 0.482 |
-| F1-Score | 0.4814 | 0.6669 | 0.616 | **0.6857** | 0.602 |
-| Accuracy | 0.6393 | 0.8607 | 0.7633 | **0.8938** | 0.7866 |
+| **ROC-AUC** | 0.8048 | 0.8986 | **0.8986** | 0.9064 | **0.9064** |
+| Recall | **0.8316** | 0.6927 | **0.8002** | 0.5756 | **0.8002** |
+| Precision | 0.3387 | 0.6430 | 0.501 | 0.8478 | 0.482 |
+| F1-Score | 0.4814 | 0.6669 | 0.616 | 0.6857 | 0.602 |
+| Accuracy | 0.6393 | 0.8607 | 0.7633 | 0.8938 | 0.7866 |
 
 <p align="center">
   <img src="images/roc_comparison.png" width="45%" />
